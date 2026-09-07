@@ -104,11 +104,9 @@ export const StudentDashboard = () => {
                     <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
                       test.assessmentType === 'compiler'
                         ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                        : test.assessmentType === 'mcq'
-                        ? 'bg-slate-100 text-slate-800'
-                        : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                        : 'bg-slate-100 text-slate-800'
                     }`}>
-                      {test.assessmentType === 'compiler' ? 'Compiler Only (Hands-On Code)' : test.assessmentType === 'mcq' ? 'MCQ Only' : 'Hybrid (MCQ + Compiler)'}
+                      {test.assessmentType === 'compiler' ? 'Compiler Assessment Only (Hands-On Code)' : 'MCQ Assessment'}
                     </span>
                   </div>
 

@@ -50,9 +50,8 @@ export const BATCHES = [
 ];
 
 export const ASSESSMENT_TYPES = [
-  { id: 'hybrid', label: 'Hybrid (MCQ + Hands-On Compiler)', desc: 'Serves 30 MCQs & 5 Live Compiler Labs' },
   { id: 'compiler', label: 'Compiler Assessment Only (Hands-On Code)', desc: 'Live Code/Query/DAX Compiler Labs without MCQs' },
-  { id: 'mcq', label: 'MCQ Assessment Only', desc: 'Randomized 30-Question Subset without Compilers' }
+  { id: 'mcq', label: 'MCQ Assessment', desc: 'Randomized 30-Question Subset without Compilers' }
 ];
 
 export const INITIAL_QUESTION_BANK = [

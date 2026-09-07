@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { DOMAINS, COURSES, BATCHES } from '../../data/mockQuestionBank';
-import { ShieldCheck, User, Lock, KeyRound, Sparkles, CheckCircle2, GraduationCap, Users } from 'lucide-react';
+import { User, Lock, KeyRound, Sparkles, GraduationCap, Users } from 'lucide-react';
 import logo from '../../assets/DV-Logo.png';
 
 export const LoginView = () => {
@@ -38,66 +38,35 @@ export const LoginView = () => {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between p-6 font-sans select-none">
+    <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans select-none">
       {/* Top Bar */}
-      <header className="max-w-6xl mx-auto w-full flex items-center justify-between py-2">
-        <div className="flex items-center gap-3">
-          <img src={logo} alt="DV Logo" className="h-9 object-contain" />
-          <div className="h-6 w-px bg-slate-200"></div>
-          <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+      <header className="w-full bg-white border-b border-slate-200 px-6 sm:px-8 py-3.5 flex items-center shadow-xs sticky top-0 z-20">
+        <div className="flex items-center gap-3.5">
+          <img src={logo} alt="DV Analytics" className="h-8 sm:h-9 object-contain" />
+          <div className="h-5 w-px bg-slate-200"></div>
+          <span className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider">
             Secure Assessment & Compiler Testing Portal
-          </span>
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 px-3 py-1 rounded-full flex items-center gap-1.5">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>Anti-Cheat Guard Active</span>
           </span>
         </div>
       </header>
 
-      {/* Hero & Login Box */}
-      <div className="max-w-5xl mx-auto w-full my-6 grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-        {/* Left Info Column */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="inline-flex items-center gap-2 bg-sky-50 border border-sky-200 px-3.5 py-1.5 rounded-full text-xs font-bold text-sky-800">
+      {/* Hero & Login Section */}
+      <main className="flex-1 w-full max-w-4xl mx-auto px-6 py-8 sm:py-10 flex flex-col items-center justify-center gap-8">
+        {/* Upper Heading Section */}
+        <div className="text-center space-y-3 max-w-2xl">
+          <div className="inline-flex items-center gap-2 bg-sky-50 border border-sky-200 px-3.5 py-1.5 rounded-full text-xs font-bold text-sky-800 shadow-2xs">
             <Sparkles className="w-4 h-4 text-sky-600" />
             <span>Multi-Domain MCQ & Live Compiler Platform</span>
           </div>
 
-          <h1 className="text-3xl sm:text-4xl font-extrabold text-slate-900 leading-tight">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight">
             Secure Assessment Platform with Live Coding & Course/Batch Scheduling
           </h1>
-
-          <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
-            Schedule Compiler-Only tests, MCQ tests, or Hybrid assessments assigned to specific student Courses (AIML, APCFCS, APIDA, FDE) and Batches (202101, 202601) with 2-warning proctoring enforcement.
-          </p>
-
-          {/* Feature Highlights */}
-          <div className="grid grid-cols-2 gap-3 pt-2 text-xs font-semibold text-slate-700">
-            <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Compiler-Only Test Scheduling</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Course & Batch Multi-Selection</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>5 Live Domain Compilers</span>
-            </div>
-            <div className="flex items-center gap-2 bg-white p-3 rounded-xl border border-slate-200 shadow-xs">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              <span>Strict 2-Warning Auto Logout</span>
-            </div>
-          </div>
         </div>
 
-        {/* Right Authentication Card */}
-        <div className="lg:col-span-5">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 shadow-xl">
+        {/* Authentication Card Below Heading */}
+        <div className="w-full max-w-lg">
+          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50">
             {/* Role Tab Selector */}
             <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mb-6 text-xs font-bold">
               <button
@@ -263,10 +232,10 @@ export const LoginView = () => {
             )}
           </div>
         </div>
-      </div>
+      </main>
 
       {/* Footer */}
-      <footer className="max-w-6xl mx-auto w-full text-center text-xs text-slate-400 py-3 border-t border-slate-200">
+      <footer className="w-full bg-white border-t border-slate-200 py-3.5 px-6 text-center text-xs text-slate-500 font-medium">
         Secure Assessment & Multi-Domain Testing Platform &copy; 2026. Clean Light Mode Theme.
       </footer>
     </div>

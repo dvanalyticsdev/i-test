@@ -137,30 +137,34 @@ export const ExamEnvironment = () => {
         <div className="flex items-center gap-4">
           {/* Main Section Switcher */}
           <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 text-xs font-semibold">
-            <button
-              onClick={() => setActiveSection('mcq')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                activeSession.activeSection === 'mcq'
-                  ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <FileText className="w-3.5 h-3.5" />
-              <span>Section 1: MCQs (30 Qs)</span>
-            </button>
+            {activeSession.mcqs && activeSession.mcqs.length > 0 && (
+              <button
+                onClick={() => setActiveSection('mcq')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                  activeSession.activeSection === 'mcq'
+                    ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>MCQ Assessment ({activeSession.mcqs.length} Qs)</span>
+              </button>
+            )}
 
-            <button
-              onClick={() => setActiveSection('compiler')}
-              className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                activeSession.activeSection === 'compiler'
-                  ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
-                  : 'text-slate-600 hover:text-slate-900'
-              }`}
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              <span>Section 2: Compilers (5 Labs)</span>
-              <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">LIVE</span>
-            </button>
+            {activeSession.compilers && activeSession.compilers.length > 0 && (
+              <button
+                onClick={() => setActiveSection('compiler')}
+                className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
+                  activeSession.activeSection === 'compiler'
+                    ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
+                    : 'text-slate-600 hover:text-slate-900'
+                }`}
+              >
+                <Code2 className="w-3.5 h-3.5" />
+                <span>Compiler Assessment (5 Labs)</span>
+                <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">LIVE</span>
+              </button>
+            )}
           </div>
 
           {/* Countdown Timer */}

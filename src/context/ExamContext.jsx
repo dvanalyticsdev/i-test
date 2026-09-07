@@ -1,24 +1,47 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { INITIAL_QUESTION_BANK, getRandomizedQuestions } from '../data/mockQuestionBank';
+import { INITIAL_ASSESSMENTS } from '../data/mockAssessmentRepository';
 
 const ExamContext = createContext();
 
 export const ExamProvider = ({ children }) => {
+  // Assessments Repository (File/Document based assessment files)
+  const [assessments, setAssessments] = useState(() => {
+    try {
+      const saved = localStorage.getItem('i_test_assessments_repo');
+      return saved ? JSON.parse(saved) : INITIAL_ASSESSMENTS;
+    } catch (e) {
+      return INITIAL_ASSESSMENTS;
+    }
+  });
+
   // Master Question Bank
   const [questionBank, setQuestionBank] = useState(() => {
-    const saved = localStorage.getItem('i_test_question_bank');
-    return saved ? JSON.parse(saved) : INITIAL_QUESTION_BANK;
+    try {
+      const saved = localStorage.getItem('i_test_question_bank');
+      return saved ? JSON.parse(saved) : INITIAL_QUESTION_BANK;
+    } catch (e) {
+      return INITIAL_QUESTION_BANK;
+    }
   });
 
   // Scheduled Tests list (Admin manageable with type, course, and targetBatches)
   const [scheduledTests, setScheduledTests] = useState(() => {
     const saved = localStorage.getItem('i_test_scheduled_tests');
-    return saved ? JSON.parse(saved) : [
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        return parsed.map(t => t.assessmentType === 'hybrid' ? { ...t, assessmentType: 'mcq' } : t);
+      } catch (e) {
+        // fallback
+      }
+    }
+    return [
       {
         id: 'TEST-COMP-01',
         title: 'Hands-On Python & SQL Compiler Challenge (No MCQs)',
         domain: 'python',
-        assessmentType: 'compiler', // 'compiler' | 'mcq' | 'hybrid'
+        assessmentType: 'compiler', // 'compiler' | 'mcq'
         course: 'AIML',
         targetBatches: ['202601', '202101', '202102'],
         durationMinutes: 45,
@@ -29,9 +52,9 @@ export const ExamProvider = ({ children }) => {
       },
       {
         id: 'TEST-PY-02',
-        title: 'Python & Data Engineering Comprehensive Exam',
+        title: 'Python & Data Engineering MCQ Assessment',
         domain: 'python',
-        assessmentType: 'hybrid',
+        assessmentType: 'mcq',
         course: 'FDE',
         targetBatches: ['202601', '202103'],
         durationMinutes: 45,
@@ -42,7 +65,7 @@ export const ExamProvider = ({ children }) => {
       },
       {
         id: 'TEST-SQL-03',
-        title: 'Advanced SQL Window Functions & Optimization (MCQ Only)',
+        title: 'Advanced SQL Window Functions & Optimization MCQ Assessment',
         domain: 'sql',
         assessmentType: 'mcq',
         course: 'APIDA',
@@ -55,9 +78,9 @@ export const ExamProvider = ({ children }) => {
       },
       {
         id: 'TEST-MULTI-04',
-        title: 'Full Stack Data & Analytics Skills Assessment (9 Domains)',
+        title: 'Full Stack Data & Analytics Skills MCQ Assessment (9 Domains)',
         domain: 'excel_ai',
-        assessmentType: 'hybrid',
+        assessmentType: 'mcq',
         course: 'All Courses',
         targetBatches: ['All Batches'],
         durationMinutes: 60,
@@ -71,12 +94,20 @@ export const ExamProvider = ({ children }) => {
 
   // Admin Submissions Repository
   const [submissions, setSubmissions] = useState(() => {
-    const saved = localStorage.getItem('i_test_submissions');
-    return saved ? JSON.parse(saved) : [];
+    try {
+      const saved = localStorage.getItem('i_test_submissions');
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
   });
 
   // Active Exam Session State
   const [activeSession, setActiveSession] = useState(null);
+
+  useEffect(() => {
+    localStorage.setItem('i_test_assessments_repo', JSON.stringify(assessments));
+  }, [assessments]);
 
   useEffect(() => {
     localStorage.setItem('i_test_question_bank', JSON.stringify(questionBank));
@@ -92,7 +123,7 @@ export const ExamProvider = ({ children }) => {
 
   // Start Exam Session
   const startExamSession = (testConfig, studentUser) => {
-    const assessmentType = testConfig.assessmentType || 'hybrid';
+    const assessmentType = testConfig.assessmentType || 'compiler';
     const isCompilerOnly = assessmentType === 'compiler';
     const isMcqOnly = assessmentType === 'mcq';
 
@@ -102,7 +133,7 @@ export const ExamProvider = ({ children }) => {
     const newSession = {
       testId: testConfig.id,
       testTitle: testConfig.title,
-      assessmentType: assessmentType, // 'compiler' | 'mcq' | 'hybrid'
+      assessmentType: assessmentType, // 'compiler' | 'mcq'
       studentId: studentUser.lmsId || studentUser.id,
       studentName: studentUser.name,
       mcqs: isCompilerOnly ? [] : mcqs,
@@ -264,9 +295,34 @@ export const ExamProvider = ({ children }) => {
     setScheduledTests(prev => [testData, ...prev]);
   };
 
+  const addAssessment = (newAssessment) => {
+    setAssessments(prev => [newAssessment, ...prev]);
+    // Also inject its questions into the question pool if applicable
+    if (newAssessment.questions && newAssessment.questions.length > 0) {
+      setQuestionBank(prev => [...newAssessment.questions, ...prev]);
+    }
+  };
+
+  const deleteAssessment = (assessmentId) => {
+    setAssessments(prev => prev.filter(a => a.id !== assessmentId));
+  };
+
+  const updateAssessment = (assessmentId, updatedFields) => {
+    setAssessments(prev => prev.map(a => a.id === assessmentId ? { ...a, ...updatedFields } : a));
+  };
+
+  const getAssessmentById = (assessmentId) => {
+    return assessments.find(a => a.id === assessmentId);
+  };
+
   return (
     <ExamContext.Provider
       value={{
+        assessments,
+        addAssessment,
+        deleteAssessment,
+        updateAssessment,
+        getAssessmentById,
         questionBank,
         scheduledTests,
         submissions,

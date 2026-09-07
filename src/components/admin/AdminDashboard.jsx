@@ -3,11 +3,11 @@ import { useAuth } from '../../context/AuthContext';
 import { QuestionBankManager } from './QuestionBankManager';
 import { TestScheduler } from './TestScheduler';
 import { StudentSubmissions } from './StudentSubmissions';
-import { Database, Calendar, Users, BarChart3, LogOut, ShieldCheck } from 'lucide-react';
+import { Database, Calendar, Users, BarChart3, LogOut } from 'lucide-react';
 import logo from '../../assets/DV-Logo.png';
 
 export const AdminDashboard = () => {
-  const { user, logout } = useAuth();
+  const { logout } = useAuth();
   const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'scheduler' | 'submissions'
 
   return (
@@ -24,10 +24,6 @@ export const AdminDashboard = () => {
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 bg-sky-50 border border-sky-200 px-3 py-1 rounded-full text-xs font-semibold text-sky-900">
-            <ShieldCheck className="w-4 h-4 text-sky-600" />
-            <span>{user?.name || 'Admin'}</span>
-          </div>
 
           <button
             onClick={logout}

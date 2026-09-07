@@ -74,7 +74,7 @@ export const TestScheduler = () => {
           <div>
             <h2 className="text-base font-bold text-slate-900">Assessment Scheduler & Configurator</h2>
             <p className="text-xs text-slate-500">
-              Schedule Compiler-Only, MCQ, or Hybrid tests, assign target courses & batches, and enforce anti-cheat policies.
+              Schedule Compiler-Only or MCQ Assessment tests, assign target courses & batches, and enforce anti-cheat policies.
             </p>
           </div>
 
@@ -161,11 +161,9 @@ export const TestScheduler = () => {
                 <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full uppercase ${
                   t.assessmentType === 'compiler'
                     ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                    : t.assessmentType === 'mcq'
-                    ? 'bg-slate-100 text-slate-800'
-                    : 'bg-emerald-100 text-emerald-900 border border-emerald-300'
+                    : 'bg-slate-100 text-slate-800'
                 }`}>
-                  {t.assessmentType === 'compiler' ? 'Compiler Only (Hands-On Code)' : t.assessmentType === 'mcq' ? 'MCQ Only' : 'Hybrid (MCQ + Compiler)'}
+                  {t.assessmentType === 'compiler' ? 'Compiler Assessment Only (Hands-On Code)' : 'MCQ Assessment'}
                 </span>
               </div>
 
@@ -226,19 +224,19 @@ export const TestScheduler = () => {
               {/* Assessment Type Selector */}
               <div>
                 <label className="block text-slate-700 font-bold mb-1">Assessment Type</label>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-2 gap-3">
                   {ASSESSMENT_TYPES.map(type => (
                     <button
                       key={type.id}
                       type="button"
                       onClick={() => setAssessmentType(type.id)}
-                      className={`p-2.5 rounded-xl border text-left transition flex flex-col justify-between ${
+                      className={`p-3 rounded-xl border text-left transition flex flex-col justify-between ${
                         assessmentType === type.id
                           ? 'bg-sky-50 border-sky-500 text-sky-950 font-bold ring-1 ring-sky-400'
                           : 'bg-slate-50 border-slate-200 text-slate-700 hover:bg-slate-100'
                       }`}
                     >
-                      <span className="text-[11px] font-bold leading-tight">{type.label}</span>
+                      <span className="text-xs font-bold leading-tight">{type.label}</span>
                     </button>
                   ))}
                 </div>
@@ -355,8 +353,8 @@ export const TestScheduler = () => {
                 </div>
               </div>
 
-              {/* Served MCQs count (only visible if MCQ or Hybrid selected) */}
-              {assessmentType !== 'compiler' && (
+              {/* Served MCQs count (only visible for MCQ Assessment) */}
+              {assessmentType === 'mcq' && (
                 <div>
                   <label className="block text-slate-700 font-bold mb-1">Served MCQs (Randomized Subset)</label>
                   <input
