@@ -31,14 +31,26 @@ export const ExamEnvironment = () => {
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [activeCompilerDomain, setActiveCompilerDomain] = useState('python'); // 'python' | 'sql' | 'power_bi' | 'sas' | 'excel_ai'
 
-  // Hook up Proctoring Guard with grace period & cooldown safeguards
-  const handleViolation = (reason) => {
-    registerProctorViolation(reason);
+  // Hook up Proctoring Guard with grace period, cooldown, and 2-strike auto-submission
+  const handleViolation = (reason, count) => {
+    registerProctorViolation(reason, count);
   };
 
-  const { isFullscreen, requestFullscreen } = useProctoring({
+  const { 
+    isFullscreen, 
+    requestFullscreen, 
+    mediaStream, 
+    cameraStatus, 
+    microphoneStatus, 
+    deviceErrorDetails, 
+    retryMediaDevices 
+  } = useProctoring({
     onViolation: handleViolation,
-    isExamActive: activeSession && !activeSession.isFinished
+    onAutoSubmitDisqualified: (reason) => {
+      registerProctorViolation(reason, 2);
+    },
+    isExamActive: activeSession && !activeSession.isFinished,
+    initialWarningCount: activeSession?.warningCount || 0
   });
 
   // Timer countdown effect
@@ -181,6 +193,11 @@ export const ExamEnvironment = () => {
         requestFullscreen={requestFullscreen}
         isFullscreen={isFullscreen}
         proctorLogs={activeSession.proctorLogs}
+        mediaStream={mediaStream}
+        cameraStatus={cameraStatus}
+        microphoneStatus={microphoneStatus}
+        deviceErrorDetails={deviceErrorDetails}
+        onRetryMediaDevices={retryMediaDevices}
       />
 
       {/* Main Workspace Layout */}
@@ -334,7 +351,7 @@ export const ExamEnvironment = () => {
               setActiveSection('compiler');
               setActiveCompilerDomain(domainId);
             }}
-            onSubmitTest={() => setConfirmSubmitOpen(false)}
+            onSubmitTest={() => setConfirmSubmitOpen(true)}
           />
         </div>
       </main>

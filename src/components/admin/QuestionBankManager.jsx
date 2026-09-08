@@ -22,10 +22,8 @@ import {
   ArrowUpDown,
   BookOpen,
   CheckCircle2,
-  Plus,
-  FileSpreadsheet
+  Plus
 } from 'lucide-react';
-import { downloadAssessmentExcelTemplate } from '../../utils/assessmentDocumentUtils';
 
 export const QuestionBankManager = () => {
   const { assessments, deleteAssessment, addAssessment } = useExam();
@@ -113,15 +111,6 @@ export const QuestionBankManager = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <button
-            onClick={downloadAssessmentExcelTemplate}
-            className="flex items-center gap-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 px-3.5 py-2.5 rounded-xl font-bold text-xs border border-slate-300 transition"
-            title="Download blank sample Excel assessment template"
-          >
-            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Excel Template</span>
-          </button>
-
           <button
             onClick={() => setIsBulkOpen(true)}
             className="flex items-center gap-1.5 bg-sky-600 hover:bg-sky-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs shadow-md shadow-sky-100 transition"

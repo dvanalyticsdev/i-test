@@ -102,8 +102,23 @@ export const ExamProvider = ({ children }) => {
     }
   });
 
-  // Active Exam Session State
-  const [activeSession, setActiveSession] = useState(null);
+  // Active Exam Session State with localStorage persistence across refresh
+  const [activeSession, setActiveSession] = useState(() => {
+    try {
+      const saved = localStorage.getItem('i_test_active_session');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+
+  useEffect(() => {
+    if (activeSession) {
+      localStorage.setItem('i_test_active_session', JSON.stringify(activeSession));
+    } else {
+      localStorage.removeItem('i_test_active_session');
+    }
+  }, [activeSession]);
 
   useEffect(() => {
     localStorage.setItem('i_test_assessments_repo', JSON.stringify(assessments));
@@ -198,18 +213,19 @@ export const ExamProvider = ({ children }) => {
     setActiveSession(prev => ({ ...prev, activeSection: section, currentQuestionIndex: 0 }));
   };
 
-  const registerProctorViolation = (reason) => {
+  const registerProctorViolation = (reason, customCount) => {
     if (!activeSession || activeSession.isFinished) return;
 
     const timestamp = new Date().toLocaleTimeString();
-    const newWarningCount = activeSession.warningCount + 1;
+    const newWarningCount = customCount !== undefined ? customCount : (activeSession.warningCount + 1);
 
     let logType = 'WARNING';
     let message = `Warning ${newWarningCount}/2: ${reason}`;
 
-    if (newWarningCount > 2) {
+    // Auto-submission and termination after the second violation
+    if (newWarningCount >= 2) {
       logType = 'CRITICAL';
-      message = `Violation ${newWarningCount}: Exceeded 2 warnings limit. Student forcibly logged out of test and marked as DISQUALIFIED (CHEATING DETECTED).`;
+      message = `Violation ${newWarningCount}/2: Second violation detected (${reason}). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).`;
     }
 
     const updatedLogs = [
@@ -217,7 +233,7 @@ export const ExamProvider = ({ children }) => {
       { timestamp, type: logType, message, warningNum: newWarningCount }
     ];
 
-    if (newWarningCount > 2) {
+    if (newWarningCount >= 2) {
       const disqualifiedSubmission = {
         id: 'SUB-' + Math.floor(1000 + Math.random() * 9000),
         studentId: activeSession.studentId,
@@ -225,29 +241,39 @@ export const ExamProvider = ({ children }) => {
         testId: activeSession.testId,
         testTitle: activeSession.testTitle,
         submittedAt: new Date().toLocaleString(),
-        score: '0 (Disqualified)',
-        compilerStatus: 'Terminated',
-        cheatingStatus: 'DISQUALIFIED (CHEATING DETECTED)',
+        score: '0 (Disqualified - 2 Violations)',
+        compilerStatus: 'Terminated on Second Strike',
+        cheatingStatus: 'DISQUALIFIED (CHEATING DETECTED - 2 STRIKES)',
         proctorLogs: updatedLogs,
         codeSubmitted: Object.values(activeSession.compilerCode).join('\n\n---\n\n'),
         status: 'DISQUALIFIED (CHEATING DETECTED)'
       };
 
-      setSubmissions(prev => [disqualifiedSubmission, ...prev]);
+      setSubmissions(prev => {
+        const next = [disqualifiedSubmission, ...prev];
+        localStorage.setItem('i_test_submissions', JSON.stringify(next));
+        return next;
+      });
 
-      setActiveSession(prev => ({
-        ...prev,
+      const updatedSession = {
+        ...activeSession,
         warningCount: newWarningCount,
         proctorLogs: updatedLogs,
         isFinished: true,
-        disqualifiedReason: `Test Terminated: You exceeded the maximum limit of 2 anti-cheating warnings (${reason}). Your assessment has been automatically logged out and recorded as CHEATING DETECTED in the administrative dashboard.`
-      }));
+        disqualifiedReason: `Test Automatically Terminated: You triggered 2 anti-cheating violations (${reason}). As per exam policy, your assessment has been automatically submitted and recorded as DISQUALIFIED (CHEATING DETECTED). Further answering is disabled.`
+      };
+
+      setActiveSession(updatedSession);
+      localStorage.setItem('i_test_active_session', JSON.stringify(updatedSession));
     } else {
-      setActiveSession(prev => ({
-        ...prev,
+      const updatedSession = {
+        ...activeSession,
         warningCount: newWarningCount,
         proctorLogs: updatedLogs
-      }));
+      };
+
+      setActiveSession(updatedSession);
+      localStorage.setItem('i_test_active_session', JSON.stringify(updatedSession));
     }
   };
 
@@ -279,11 +305,19 @@ export const ExamProvider = ({ children }) => {
       status: 'SUBMITTED'
     };
 
-    setSubmissions(prev => [finalSubmission, ...prev]);
-    setActiveSession(prev => ({ ...prev, isFinished: true }));
+    setSubmissions(prev => {
+      const next = [finalSubmission, ...prev];
+      localStorage.setItem('i_test_submissions', JSON.stringify(next));
+      return next;
+    });
+
+    const finishedSession = { ...activeSession, isFinished: true };
+    setActiveSession(finishedSession);
+    localStorage.setItem('i_test_active_session', JSON.stringify(finishedSession));
   };
 
   const exitExam = () => {
+    localStorage.removeItem('i_test_active_session');
     setActiveSession(null);
   };
 

@@ -133,7 +133,23 @@ export const StudentDashboard = () => {
                 </div>
 
                 <button
-                  onClick={() => startExamSession(test, user)}
+                  onClick={() => {
+                    // Immediately transition interface into true browser fullscreen mode using Fullscreen API on user gesture
+                    try {
+                      const docEl = document.documentElement;
+                      const requestFull = 
+                        docEl.requestFullscreen ||
+                        docEl.webkitRequestFullscreen ||
+                        docEl.mozRequestFullScreen ||
+                        docEl.msRequestFullscreen;
+                      if (requestFull) {
+                        requestFull.call(docEl).catch(() => {});
+                      }
+                    } catch (e) {
+                      // Handled safely
+                    }
+                    startExamSession(test, user);
+                  }}
                   className={`w-full py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 ${
                     test.assessmentType === 'compiler' ? 'bg-purple-700 hover:bg-purple-800 shadow-purple-100' : 'bg-sky-600 hover:bg-sky-700 shadow-sky-100'
                   }`}
