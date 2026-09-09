@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useExam } from '../../context/ExamContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProctoring } from '../../hooks/useProctoring';
@@ -11,8 +11,158 @@ import { SqlCompiler } from '../compilers/SqlCompiler';
 import { PowerBICompiler } from '../compilers/PowerBICompiler';
 import { SasCompiler } from '../compilers/SasCompiler';
 import { ExcelAiCompiler } from '../compilers/ExcelAiCompiler';
-import { Clock, ShieldAlert, CheckCircle2, Code2, FileText, AlertCircle, LogOut, Sparkles } from 'lucide-react';
+import { 
+  Clock, 
+  CheckCircle2, 
+  Code2, 
+  FileText, 
+  AlertCircle, 
+  Sparkles, 
+  Database, 
+  BarChart3, 
+  Binary, 
+  FileSpreadsheet, 
+  HelpCircle,
+  Terminal,
+  Bookmark,
+  Send
+} from 'lucide-react';
 import logo from '../../assets/DV-Logo.png';
+
+const COMPILER_LAB_SPECS = {
+  python: {
+    id: 'python',
+    key: 'coding-py-1',
+    labNum: 'LAB 1',
+    domain: 'Python 3.11',
+    icon: Code2,
+    badgeColor: 'sky',
+    title: 'Enterprise Sales Revenue Aggregator & Deduplication',
+    difficulty: 'Intermediate',
+    score: '20 Pts',
+    scenario: 'You are a data engineer at an e-commerce platform. During flash sales, high-concurrency order streams occasionally generate duplicate or negative transaction records.',
+    instructions: [
+      'Implement the function process_sales(transactions) to aggregate net sales revenue grouped by product item name.',
+      'Input transactions is a list of dictionaries: [{"item": "Laptop", "price": 1200}, {"item": "Mouse", "price": 25}, ...].',
+      'Ignore or filter out entries where price is 0 or negative.',
+      'Return a summary dictionary mapping each item name to its total aggregated revenue sum.'
+    ],
+    sampleInput: `transactions = [
+  {"item": "Laptop", "price": 1200},
+  {"item": "Mouse", "price": 25},
+  {"item": "Laptop", "price": 1200},
+  {"item": "Keyboard", "price": 75}
+]`,
+    sampleOutput: `{"Laptop": 2400, "Mouse": 25, "Keyboard": 75}`,
+    constraints: [
+      'Time complexity should be O(N).',
+      'Handle empty transaction lists cleanly, returning {}.',
+      'Case-sensitive grouping for item keys.'
+    ]
+  },
+  sql: {
+    id: 'sql',
+    key: 'coding-sql-1',
+    labNum: 'LAB 2',
+    domain: 'SQL / PostgreSQL',
+    icon: Database,
+    badgeColor: 'cyan',
+    title: 'Department Salary Ranking & Window Aggregations',
+    difficulty: 'Intermediate',
+    score: '20 Pts',
+    scenario: 'The HR Analytics department requires an authoritative payroll report ranking employees within their respective departments by total salary compensation.',
+    instructions: [
+      'Write a SELECT query querying the employees table.',
+      'Compute salary_rank using DENSE_RANK() or RANK() OVER (PARTITION BY department ORDER BY salary DESC).',
+      'Return columns: id, name, department, salary, and salary_rank ordered by department, salary_rank ASC.'
+    ],
+    sampleInput: `Table employees:
+(id INT, name VARCHAR, department VARCHAR, salary NUMERIC)`,
+    sampleOutput: `id  | name          | department    | salary | salary_rank
+101 | Sarah Jenkins | Engineering   | 115000 | 1
+104 | David Chen    | Engineering   | 98000  | 2
+108 | Elena Rostova | Data Science  | 125000 | 1`,
+    constraints: [
+      'Partition strictly by department column.',
+      'Rank 1 must correspond to highest salary within each department.',
+      'Maintain exact output column aliases.'
+    ]
+  },
+  power_bi: {
+    id: 'power_bi',
+    key: 'coding-pb-1',
+    labNum: 'LAB 3',
+    domain: 'Power BI DAX',
+    icon: BarChart3,
+    badgeColor: 'amber',
+    title: 'Quarterly Year-over-Year (YoY) Revenue Growth Measure',
+    difficulty: 'Advanced',
+    score: '20 Pts',
+    scenario: 'The executive financial dashboard requires a dynamic DAX calculated measure to evaluate quarterly YoY revenue growth against prior-year baselines.',
+    instructions: [
+      'Write a DAX measure computing YoY Growth %.',
+      'Use DIVIDE() with error fallback 0 to compute: ([Total Revenue] - [PY Revenue]) / [PY Revenue].',
+      'Format output as a percentage and bind to the quarterly sales visual canvas.'
+    ],
+    sampleInput: `Measures available: [Total Revenue], [PY Revenue]`,
+    sampleOutput: `YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)`,
+    constraints: [
+      'Must use DIVIDE() function to prevent divide-by-zero errors.',
+      'Ensure compatibility with standard Power BI VertiPaq engine.'
+    ]
+  },
+  sas: {
+    id: 'sas',
+    key: 'coding-sas-1',
+    labNum: 'LAB 4',
+    domain: 'SAS Studio',
+    icon: Binary,
+    badgeColor: 'purple',
+    title: 'Regional Sales & Returns Summary Statistics (PROC MEANS)',
+    difficulty: 'Intermediate',
+    score: '20 Pts',
+    scenario: 'The actuarial risk team requires descriptive summary statistics for regional wholesale transactions across continental markets.',
+    instructions: [
+      'Write a PROC MEANS procedure analyzing dataset WORK.SALES_SUMMARY.',
+      'Calculate statistical moments: MEAN, STD, MIN, and MAX.',
+      'Group by Region using the CLASS statement, analyzing variables Sales and Returns.',
+      'Conclude procedure execution with RUN; statement.'
+    ],
+    sampleInput: `Dataset: WORK.SALES_SUMMARY
+Variables: Region, Sales, Returns`,
+    sampleOutput: `PROC MEANS DATA=WORK.SALES_SUMMARY MEAN STD MIN MAX;
+  CLASS Region;
+  VAR Sales Returns;
+RUN;`,
+    constraints: [
+      'Standard SAS 9.4 syntax with semicolons terminating each statement.',
+      'Include both Sales and Returns variables in VAR clause.'
+    ]
+  },
+  excel_ai: {
+    id: 'excel_ai',
+    key: 'coding-excel-1',
+    labNum: 'LAB 5',
+    domain: 'Excel AI Grid',
+    icon: FileSpreadsheet,
+    badgeColor: 'emerald',
+    title: 'Dynamic Cross-Table Lookup & Bulk Tiered Discount Logic',
+    difficulty: 'Intermediate',
+    score: '20 Pts',
+    scenario: 'Automate invoice pricing calculations by dynamically matching product unit prices and applying tiered discounts based on order volume.',
+    instructions: [
+      'Write an Excel dynamic array formula for Column D (Calculated Revenue).',
+      'Use XLOOKUP(A2, Products[ID], Products[Price]) multiplied by order quantity B2.',
+      'If quantity B2 is greater than 100 units, apply a 15% bulk discount (* 0.85).'
+    ],
+    sampleInput: `A2: Product ID, B2: Quantity, Products table with ID and Price`,
+    sampleOutput: `=IF(B2>100, (XLOOKUP(A2, Products[ID], Products[Price]) * B2) * 0.85, XLOOKUP(A2, Products[ID], Products[Price]) * B2)`,
+    constraints: [
+      'Compatible with Office 365 dynamic calculation.',
+      'Handle zero quantity and unlisted product IDs without crashing.'
+    ]
+  }
+};
 
 export const ExamEnvironment = () => {
   const { user } = useAuth();
@@ -31,10 +181,14 @@ export const ExamEnvironment = () => {
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
   const [activeCompilerDomain, setActiveCompilerDomain] = useState('python'); // 'python' | 'sql' | 'power_bi' | 'sas' | 'excel_ai'
 
-  // Hook up Proctoring Guard with grace period, cooldown, and 2-strike auto-submission
-  const handleViolation = (reason, count) => {
+  // Hook up Proctoring Guard with stable memoized handlers
+  const handleViolation = useCallback((reason, count) => {
     registerProctorViolation(reason, count);
-  };
+  }, [registerProctorViolation]);
+
+  const handleAutoSubmit = useCallback((reason) => {
+    registerProctorViolation(reason, 2);
+  }, [registerProctorViolation]);
 
   const { 
     isFullscreen, 
@@ -43,13 +197,12 @@ export const ExamEnvironment = () => {
     cameraStatus, 
     microphoneStatus, 
     deviceErrorDetails, 
+    markSubmitting,
     retryMediaDevices 
   } = useProctoring({
     onViolation: handleViolation,
-    onAutoSubmitDisqualified: (reason) => {
-      registerProctorViolation(reason, 2);
-    },
-    isExamActive: activeSession && !activeSession.isFinished,
+    onAutoSubmitDisqualified: handleAutoSubmit,
+    isExamActive: Boolean(activeSession && !activeSession.isFinished),
     initialWarningCount: activeSession?.warningCount || 0
   });
 
@@ -62,6 +215,7 @@ export const ExamEnvironment = () => {
       setSecondsLeft((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          markSubmitting();
           submitExam();
           return 0;
         }
@@ -69,115 +223,167 @@ export const ExamEnvironment = () => {
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [activeSession, submitExam]);
+  }, [activeSession, submitExam, markSubmitting]);
+
+  // Automatically convert into fullscreen on student interactions while giving the test
+  const isExamActive = Boolean(activeSession && !activeSession.isFinished);
+  useEffect(() => {
+    if (!isExamActive) return;
+
+    const handleAutoFullscreen = () => {
+      const isFull = !!(
+        document.fullscreenElement ||
+        document.webkitFullscreenElement ||
+        document.mozFullScreenElement ||
+        document.msFullscreenElement
+      );
+      if (!isFull) {
+        requestFullscreen();
+      }
+    };
+
+    // Auto-attempt immediately upon mount
+    handleAutoFullscreen();
+
+    // Any click or keypress automatically converts into true browser fullscreen
+    window.addEventListener('click', handleAutoFullscreen, { capture: true });
+    window.addEventListener('keydown', handleAutoFullscreen, { capture: true });
+
+    return () => {
+      window.removeEventListener('click', handleAutoFullscreen, { capture: true });
+      window.removeEventListener('keydown', handleAutoFullscreen, { capture: true });
+    };
+  }, [isExamActive, requestFullscreen]);
 
   if (!activeSession) return null;
+
+  // Safe fallback accessors to prevent runtime undefined access errors
+  const mcqs = activeSession.mcqs || [];
+  const compilers = activeSession.compilers || [];
+  const userAnswers = activeSession.userAnswers || {};
+  const markedForReview = activeSession.markedForReview || {};
+  const compilerCode = activeSession.compilerCode || {};
+  const proctorLogs = activeSession.proctorLogs || [];
+  const currentQuestionIndex = activeSession.currentQuestionIndex || 0;
+  const currentMcq = mcqs[currentQuestionIndex] || null;
+  const activeSection = activeSession.activeSection || (compilers.length > 0 && mcqs.length === 0 ? 'compiler' : 'mcq');
 
   // Format Timer
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const formattedTime = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-  // If student was disqualified after exceeding 2 warnings
-  if (activeSession.isFinished && activeSession.disqualifiedReason) {
+  const currentLabSpec = COMPILER_LAB_SPECS[activeCompilerDomain] || COMPILER_LAB_SPECS.python;
+
+  // If disqualified or finished
+  const isDisqualifiedSession = Boolean(
+    activeSession.isDisqualified ||
+    activeSession.status === 'DISQUALIFIED' ||
+    activeSession.submissionReason === 'AUTO_SUBMITTED_CHEATING' ||
+    activeSession.disqualifiedReason ||
+    (activeSession.warningCount && activeSession.warningCount >= 2)
+  );
+
+  if (isDisqualifiedSession) {
     return (
       <DisqualifiedModal
-        reason={activeSession.disqualifiedReason}
+        isOpen={true}
+        session={activeSession}
+        user={user}
+        reason={activeSession.disqualifiedReason || 'Security proctoring policy exceeded maximum allowed warnings.'}
+        onAcknowledge={exitExam}
         onReturnToDashboard={exitExam}
       />
     );
   }
 
-  // If student submitted normally
   if (activeSession.isFinished) {
     return (
-      <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6 select-none">
-        <div className="bg-white border border-slate-200 rounded-3xl max-w-md w-full p-8 shadow-xl text-center">
-          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4 border border-emerald-300">
-            <CheckCircle2 className="w-10 h-10" />
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl max-w-md w-full p-8 text-center shadow-2xl">
+          <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8" />
           </div>
-          <h2 className="text-2xl font-black text-slate-900 mb-2">Assessment Completed</h2>
-          <p className="text-xs text-slate-600 mb-6 leading-relaxed">
-            Your responses and hands-on compiler code have been securely formatted and routed to the Administrator Dashboard for final evaluation.
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Assessment Completed</h2>
+          <p className="text-slate-600 text-sm mb-6">
+            Your assessment answers and compiler solutions have been submitted securely to the examination portal.
           </p>
-
-          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-left text-xs space-y-2">
-            <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Total MCQs Answered:</span>
-              <span className="font-bold text-slate-800">{Object.keys(activeSession.userAnswers).length} / 30</span>
-            </div>
-            <div className="flex justify-between border-b border-slate-200 pb-2">
-              <span className="text-slate-500">Compiler Labs Code:</span>
-              <span className="font-bold text-emerald-600">5 Domain Solutions Saved</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-slate-500">Proctoring Status:</span>
-              <span className="font-bold text-emerald-600">
-                {activeSession.warningCount === 0 ? 'Clean (0 Infractions)' : `${activeSession.warningCount} Warning(s)`}
-              </span>
-            </div>
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 mb-6 text-left text-xs text-slate-700 space-y-1.5">
+            <p><strong>Candidate:</strong> {activeSession.studentName || user?.name}</p>
+            <p><strong>Test:</strong> {activeSession.testTitle}</p>
+            <p><strong>Total Submissions:</strong> {Object.keys(userAnswers).length} MCQs answered, {Object.keys(compilerCode).length} Compiler labs saved.</p>
+            <p><strong>Status:</strong> <span className="text-emerald-700 font-bold font-mono">SUBMITTED_SECURE</span></p>
           </div>
-
           <button
             onClick={exitExam}
-            className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold rounded-xl shadow-lg shadow-sky-100 transition flex items-center justify-center gap-2"
+            className="w-full py-2.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-md transition"
           >
-            <LogOut className="w-4 h-4" />
-            <span>Return to Student Portal</span>
+            Return to Dashboard
           </button>
         </div>
       </div>
     );
   }
 
-  const currentMcq = activeSession.mcqs[activeSession.currentQuestionIndex];
-
   return (
-    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none">
+    <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
       {/* Top Navbar */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-xs">
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="DV Logo" className="h-8 object-contain" />
-          <div className="h-5 w-px bg-slate-200"></div>
+      <header className="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5 flex items-center justify-between shadow-xs shrink-0 z-20">
+        <div className="flex items-center gap-3 sm:gap-4">
+          <img src={logo} alt="DV Logo" className="h-7 sm:h-8 object-contain" />
+          <div className="h-5 w-px bg-slate-200 hidden sm:block"></div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900">{activeSession.testTitle}</h1>
-            <span className="text-[11px] text-slate-500">LMS ID: <strong className="text-slate-700">{activeSession.studentId}</strong></span>
+            <h1 className="text-xs sm:text-sm md:text-base font-bold text-slate-900 leading-tight">
+              {activeSession.testTitle}
+            </h1>
+            <p className="text-[11px] sm:text-xs text-slate-600 flex items-center gap-2 mt-0.5">
+              <span>Candidate: <strong className="text-slate-900 font-bold">{activeSession.studentName || user?.name}</strong></span>
+              <span className="text-slate-400">•</span>
+              <span>LMS ID: <strong className="text-sky-700 font-mono font-bold">{activeSession.studentId}</strong></span>
+            </p>
           </div>
         </div>
 
-        {/* Section Switcher Tabs & Timer */}
-        <div className="flex items-center gap-4">
-          {/* Main Section Switcher */}
-          <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 text-xs font-semibold">
-            {activeSession.mcqs && activeSession.mcqs.length > 0 && (
+        {/* Section Switcher Tabs & Countdown Timer */}
+        <div className="flex items-center gap-3">
+          {/* Main Section Switcher (Only if both sections exist) */}
+          {mcqs.length > 0 && compilers.length > 0 && (
+            <div className="bg-slate-100 p-1 rounded-xl flex items-center gap-1 border border-slate-200 text-xs font-semibold">
               <button
                 onClick={() => setActiveSection('mcq')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                  activeSession.activeSection === 'mcq'
+                  activeSection === 'mcq'
                     ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>MCQ Assessment ({activeSession.mcqs.length} Qs)</span>
+                <span>MCQ Assessment ({mcqs.length} Qs)</span>
               </button>
-            )}
 
-            {activeSession.compilers && activeSession.compilers.length > 0 && (
               <button
                 onClick={() => setActiveSection('compiler')}
                 className={`px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 ${
-                  activeSession.activeSection === 'compiler'
+                  activeSection === 'compiler'
                     ? 'bg-white text-sky-700 shadow-xs border border-slate-200 font-bold'
                     : 'text-slate-600 hover:text-slate-900'
                 }`}
               >
                 <Code2 className="w-3.5 h-3.5" />
-                <span>Compiler Assessment (5 Labs)</span>
+                <span>Compiler Assessment ({compilers.length} Labs)</span>
                 <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.5 rounded-full font-bold">LIVE</span>
               </button>
-            )}
-          </div>
+            </div>
+          )}
+
+          {/* Section Indicator Badge for compiler-only tests */}
+          {mcqs.length === 0 && (
+            <div className="hidden sm:flex items-center gap-1.5 bg-sky-50 text-sky-800 border border-sky-200 px-3 py-1 rounded-xl text-xs font-semibold">
+              <Code2 className="w-3.5 h-3.5 text-sky-600" />
+              <span>5 Specialized Compiler Labs</span>
+              <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">LIVE</span>
+            </div>
+          )}
 
           {/* Countdown Timer */}
           <div className="flex items-center gap-2 bg-slate-900 text-white px-3.5 py-1.5 rounded-xl font-mono text-xs font-bold shadow-xs">
@@ -187,12 +393,12 @@ export const ExamEnvironment = () => {
         </div>
       </header>
 
-      {/* Anti-Cheat Guard Banner */}
+      {/* Anti-Cheat Guard Banner & Enforcer */}
       <AntiCheatGuard
-        warningCount={activeSession.warningCount}
+        warningCount={activeSession.warningCount || 0}
         requestFullscreen={requestFullscreen}
         isFullscreen={isFullscreen}
-        proctorLogs={activeSession.proctorLogs}
+        proctorLogs={proctorLogs}
         mediaStream={mediaStream}
         cameraStatus={cameraStatus}
         microphoneStatus={microphoneStatus}
@@ -200,161 +406,326 @@ export const ExamEnvironment = () => {
         onRetryMediaDevices={retryMediaDevices}
       />
 
-      {/* Main Workspace Layout */}
-      <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
-        {/* Left 3 Columns: Active Section Content */}
-        <div className="lg:col-span-3 flex flex-col h-full">
-          {activeSession.activeSection === 'mcq' ? (
-            <McqQuestionCard
-              question={currentMcq}
-              questionNumber={activeSession.currentQuestionIndex + 1}
-              totalQuestions={activeSession.mcqs.length}
-              selectedAnswer={activeSession.userAnswers[activeSession.currentQuestionIndex]}
-              isMarkedForReview={activeSession.markedForReview[activeSession.currentQuestionIndex]}
-              onSelectOption={(optIdx) => selectMcqAnswer(activeSession.currentQuestionIndex, optIdx)}
-              onToggleReview={() => toggleMarkForReview(activeSession.currentQuestionIndex)}
-              onNext={() => setCurrentQuestionIndex(Math.min(activeSession.mcqs.length - 1, activeSession.currentQuestionIndex + 1))}
-              onPrev={() => setCurrentQuestionIndex(Math.max(0, activeSession.currentQuestionIndex - 1))}
+      {/* ========================================================================= */}
+      {/* 1. MCQ ASSESSMENT VIEW: EXACT BEFORE LAYOUT (3:1 Columns)                */}
+      {/* ========================================================================= */}
+      {activeSection === 'mcq' ? (
+        <main className="flex-1 p-6 grid grid-cols-1 lg:grid-cols-4 gap-6 max-w-7xl mx-auto w-full">
+          {/* Left 3 Columns: MCQ Question Card */}
+          <div className="lg:col-span-3 flex flex-col h-full">
+            {currentMcq && (
+              <McqQuestionCard
+                question={currentMcq}
+                questionNumber={currentQuestionIndex + 1}
+                totalQuestions={mcqs.length}
+                selectedAnswer={userAnswers[currentQuestionIndex]}
+                isMarkedForReview={markedForReview[currentQuestionIndex]}
+                onSelectOption={(optIdx) => selectMcqAnswer(currentQuestionIndex, optIdx)}
+                onToggleReview={() => toggleMarkForReview(currentQuestionIndex)}
+                onNext={() => setCurrentQuestionIndex(Math.min(mcqs.length - 1, currentQuestionIndex + 1))}
+                onPrev={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+              />
+            )}
+          </div>
+
+          {/* Right 1 Column: Question Navigation Side Panel */}
+          <div className="lg:col-span-1">
+            <QuestionNavPanel
+              totalQuestions={mcqs.length}
+              currentIndex={currentQuestionIndex}
+              userAnswers={userAnswers}
+              markedForReview={markedForReview}
+              activeSection={activeSection}
+              activeCompilerDomain={activeCompilerDomain}
+              compilerCode={compilerCode}
+              onSelectQuestion={(idx) => {
+                setActiveSection('mcq');
+                setCurrentQuestionIndex(idx);
+              }}
+              onSelectCompiler={(domainId) => {
+                setActiveSection('compiler');
+                setActiveCompilerDomain(domainId);
+              }}
+              onSubmitTest={() => setConfirmSubmitOpen(true)}
+              showCompilerSection={compilers.length > 0}
             />
-          ) : (
-            /* Section 2: Hands-On Compiler Workspace */
-            <div className="space-y-4 flex-1 flex flex-col">
-              <div className="bg-white p-4 rounded-xl border border-slate-200 shadow-xs">
-                <div className="flex items-center justify-between mb-1">
-                  <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                    <Code2 className="w-4 h-4 text-sky-600" />
-                    <span>Hands-On Compiler Challenge Workspace</span>
-                  </h3>
-                  <span className="bg-sky-50 text-sky-700 text-xs px-2.5 py-0.5 rounded-full font-bold border border-sky-200">
-                    5 Specialized Domain Labs
-                  </span>
-                </div>
-                <p className="text-xs text-slate-500">
-                  Select any domain compiler lab below to execute queries, algorithms, DAX formulas, SAS procedures, or Excel AI dynamic tables. All solutions are saved automatically.
-                </p>
+          </div>
+        </main>
+      ) : (
+        /* ========================================================================= */
+        /* 2. HANDS-ON COMPILER ASSESSMENT VIEW: 50:50 SPLIT-SCREEN LAYOUT          */
+        /* ========================================================================= */
+        <main className="flex-1 w-full max-w-[1720px] mx-auto p-3 sm:p-4 md:p-5 grid grid-cols-1 lg:grid-cols-2 gap-5 min-h-0 lg:h-[calc(100vh-130px)] overflow-x-hidden">
+          
+          {/* LEFT 50%: Domain Tabs, Problem Statement, & Submit */}
+          <div className="flex flex-col h-full lg:overflow-y-auto pr-0 lg:pr-2 space-y-4">
+            
+            {/* Domain Compiler Selector Tabs */}
+            <div className="bg-white p-2.5 rounded-xl border border-slate-200 shadow-xs">
+              <div className="flex items-center justify-between mb-2 px-1">
+                <span className="text-[11px] font-extrabold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Code2 className="w-3.5 h-3.5 text-slate-900" />
+                  <span>Select Specialized Compiler Lab:</span>
+                </span>
+                <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono font-semibold border border-slate-200">
+                  5 Labs Available
+                </span>
               </div>
 
-              {/* Domain Compiler Selector Tabs */}
-              <div className="grid grid-cols-5 gap-2 text-xs font-semibold">
+              <div className="grid grid-cols-5 gap-1.5 text-xs font-medium">
+                {/* LAB 1: Python 3.11 */}
                 <button
-                  onClick={() => setActiveCompilerDomain('python')}
-                  className={`p-2.5 rounded-xl text-center border transition flex flex-col items-center gap-1 ${
+                  onClick={() => {
+                    setActiveSection('compiler');
+                    setActiveCompilerDomain('python');
+                  }}
+                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
                     activeCompilerDomain === 'python'
-                      ? 'bg-slate-900 text-sky-300 border-sky-500 font-bold shadow-md ring-1 ring-sky-400'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
                   }`}
                 >
-                  <span className="text-[10px] font-mono bg-sky-950 px-1.5 py-0.5 rounded text-sky-400">LAB 1</span>
-                  <span>Python 3.11</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                      LAB 1
+                    </span>
+                    {compilerCode['coding-py-1'] && compilerCode['coding-py-1'].trim().length > 0 && (
+                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                    )}
+                  </div>
+                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Python 3.11</span>
                 </button>
 
+                {/* LAB 2: SQL Sandbox */}
                 <button
-                  onClick={() => setActiveCompilerDomain('sql')}
-                  className={`p-2.5 rounded-xl text-center border transition flex flex-col items-center gap-1 ${
+                  onClick={() => {
+                    setActiveSection('compiler');
+                    setActiveCompilerDomain('sql');
+                  }}
+                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
                     activeCompilerDomain === 'sql'
-                      ? 'bg-slate-900 text-cyan-300 border-cyan-500 font-bold shadow-md ring-1 ring-cyan-400'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
                   }`}
                 >
-                  <span className="text-[10px] font-mono bg-cyan-950 px-1.5 py-0.5 rounded text-cyan-400">LAB 2</span>
-                  <span>SQL Playground</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                      LAB 2
+                    </span>
+                    {compilerCode['coding-sql-1'] && compilerCode['coding-sql-1'].trim().length > 0 && (
+                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                    )}
+                  </div>
+                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">SQL Sandbox</span>
                 </button>
 
+                {/* LAB 3: Power BI */}
                 <button
-                  onClick={() => setActiveCompilerDomain('power_bi')}
-                  className={`p-2.5 rounded-xl text-center border transition flex flex-col items-center gap-1 ${
+                  onClick={() => {
+                    setActiveSection('compiler');
+                    setActiveCompilerDomain('power_bi');
+                  }}
+                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
                     activeCompilerDomain === 'power_bi'
-                      ? 'bg-slate-900 text-amber-300 border-amber-500 font-bold shadow-md ring-1 ring-amber-400'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
                   }`}
                 >
-                  <span className="text-[10px] font-mono bg-amber-950 px-1.5 py-0.5 rounded text-amber-400">LAB 3</span>
-                  <span>Power BI DAX</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                      LAB 3
+                    </span>
+                    {compilerCode['coding-pb-1'] && compilerCode['coding-pb-1'].trim().length > 0 && (
+                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                    )}
+                  </div>
+                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Power BI</span>
                 </button>
 
+                {/* LAB 4: SAS Studio */}
                 <button
-                  onClick={() => setActiveCompilerDomain('sas')}
-                  className={`p-2.5 rounded-xl text-center border transition flex flex-col items-center gap-1 ${
+                  onClick={() => {
+                    setActiveSection('compiler');
+                    setActiveCompilerDomain('sas');
+                  }}
+                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
                     activeCompilerDomain === 'sas'
-                      ? 'bg-slate-900 text-purple-300 border-purple-500 font-bold shadow-md ring-1 ring-purple-400'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
                   }`}
                 >
-                  <span className="text-[10px] font-mono bg-purple-950 px-1.5 py-0.5 rounded text-purple-400">LAB 4</span>
-                  <span>SAS Studio</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                      LAB 4
+                    </span>
+                    {compilerCode['coding-sas-1'] && compilerCode['coding-sas-1'].trim().length > 0 && (
+                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                    )}
+                  </div>
+                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">SAS Studio</span>
                 </button>
 
+                {/* LAB 5: Excel AI */}
                 <button
-                  onClick={() => setActiveCompilerDomain('excel_ai')}
-                  className={`p-2.5 rounded-xl text-center border transition flex flex-col items-center gap-1 ${
+                  onClick={() => {
+                    setActiveSection('compiler');
+                    setActiveCompilerDomain('excel_ai');
+                  }}
+                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
                     activeCompilerDomain === 'excel_ai'
-                      ? 'bg-emerald-900 text-white border-emerald-500 font-bold shadow-md ring-1 ring-emerald-400'
-                      : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
                   }`}
                 >
-                  <span className="text-[10px] font-mono bg-emerald-950 px-1.5 py-0.5 rounded text-emerald-300">LAB 5</span>
-                  <span>Excel AI Grid</span>
+                  <div className="flex items-center justify-center gap-1">
+                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                      LAB 5
+                    </span>
+                    {compilerCode['coding-excel-1'] && compilerCode['coding-excel-1'].trim().length > 0 && (
+                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                    )}
+                  </div>
+                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Excel AI</span>
                 </button>
-              </div>
-
-              {/* Active Compiler Lab Component */}
-              <div className="flex-1 min-h-[440px]">
-                {activeCompilerDomain === 'python' && (
-                  <PythonCompiler
-                    starterCode={activeSession.compilerCode['coding-py-1']}
-                    onCodeChange={(code) => updateCompilerCode('coding-py-1', code)}
-                  />
-                )}
-                {activeCompilerDomain === 'sql' && (
-                  <SqlCompiler
-                    starterCode={activeSession.compilerCode['coding-sql-1']}
-                    onCodeChange={(code) => updateCompilerCode('coding-sql-1', code)}
-                  />
-                )}
-                {activeCompilerDomain === 'power_bi' && (
-                  <PowerBICompiler
-                    starterCode={activeSession.compilerCode['coding-pb-1']}
-                    onCodeChange={(code) => updateCompilerCode('coding-pb-1', code)}
-                  />
-                )}
-                {activeCompilerDomain === 'sas' && (
-                  <SasCompiler
-                    starterCode={activeSession.compilerCode['coding-sas-1']}
-                    onCodeChange={(code) => updateCompilerCode('coding-sas-1', code)}
-                  />
-                )}
-                {activeCompilerDomain === 'excel_ai' && (
-                  <ExcelAiCompiler
-                    starterCode={activeSession.compilerCode['coding-excel-1']}
-                    onCodeChange={(code) => updateCompilerCode('coding-excel-1', code)}
-                  />
-                )}
               </div>
             </div>
-          )}
-        </div>
 
-        {/* Right 1 Column: Navigation Side Panel */}
-        <div className="lg:col-span-1">
-          <QuestionNavPanel
-            totalQuestions={activeSession.mcqs.length}
-            currentIndex={activeSession.currentQuestionIndex}
-            userAnswers={activeSession.userAnswers}
-            markedForReview={activeSession.markedForReview}
-            activeSection={activeSession.activeSection}
-            activeCompilerDomain={activeCompilerDomain}
-            onSelectQuestion={(idx) => {
-              setActiveSection('mcq');
-              setCurrentQuestionIndex(idx);
-            }}
-            onSelectCompiler={(domainId) => {
-              setActiveSection('compiler');
-              setActiveCompilerDomain(domainId);
-            }}
-            onSubmitTest={() => setConfirmSubmitOpen(true)}
-          />
-        </div>
-      </main>
+            {/* Hands-On Challenge Problem Statement & Specification Card */}
+            <div className="bg-white rounded-xl border border-slate-200 p-5 shadow-xs space-y-4">
+              {/* Challenge Title Header */}
+              <div className="flex items-start justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-[10px] font-mono font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded">
+                      {currentLabSpec.labNum} • {currentLabSpec.domain}
+                    </span>
+                    <span className="text-[10px] font-semibold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
+                      {currentLabSpec.difficulty}
+                    </span>
+                  </div>
+                  <h2 className="text-base font-bold text-slate-900 leading-snug">
+                    {currentLabSpec.title}
+                  </h2>
+                </div>
+                <span className="text-xs font-bold text-sky-700 bg-sky-50 border border-sky-200 px-2.5 py-1 rounded-lg">
+                  {currentLabSpec.score}
+                </span>
+              </div>
+
+              {/* Scenario Context */}
+              <div className="bg-slate-50 border-l-4 border-sky-600 p-3 rounded-r-lg text-xs text-slate-700 leading-relaxed">
+                <span className="font-bold text-slate-900 block mb-0.5">Problem Scenario:</span>
+                {currentLabSpec.scenario}
+              </div>
+
+              {/* Requirements & Instructions */}
+              <div>
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-2 flex items-center gap-1.5">
+                  <Bookmark className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Task Instructions & Requirements:</span>
+                </h3>
+                <ul className="space-y-1.5 text-xs text-slate-600 list-disc list-inside leading-relaxed pl-1">
+                  {currentLabSpec.instructions.map((item, idx) => (
+                    <li key={idx} className="marker:text-sky-600">
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Sample Input / Expected Output */}
+              <div className="space-y-2 pt-2 border-t border-slate-100">
+                <h3 className="text-xs font-bold text-slate-900 uppercase tracking-wider flex items-center gap-1.5">
+                  <Terminal className="w-3.5 h-3.5 text-slate-500" />
+                  <span>Input & Expected Output Specification:</span>
+                </h3>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2 text-xs font-mono">
+                  <div className="bg-slate-900 text-slate-200 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase font-sans font-bold text-slate-400 block mb-1">Input / Baseline:</span>
+                    <pre className="text-[11px] whitespace-pre-wrap leading-tight text-sky-300 overflow-x-auto">
+                      {currentLabSpec.sampleInput}
+                    </pre>
+                  </div>
+                  <div className="bg-slate-900 text-slate-200 p-2.5 rounded-lg border border-slate-800">
+                    <span className="text-[10px] uppercase font-sans font-bold text-slate-400 block mb-1">Expected Output:</span>
+                    <pre className="text-[11px] whitespace-pre-wrap leading-tight text-emerald-300 overflow-x-auto">
+                      {currentLabSpec.sampleOutput}
+                    </pre>
+                  </div>
+                </div>
+              </div>
+
+              {/* Constraints */}
+              <div className="pt-2 border-t border-slate-100">
+                <h4 className="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">
+                  Technical Constraints:
+                </h4>
+                <div className="flex flex-wrap gap-1.5 text-[11px] text-slate-600">
+                  {currentLabSpec.constraints.map((c, idx) => (
+                    <span key={idx} className="bg-slate-100 border border-slate-200 px-2 py-0.5 rounded-md">
+                      • {c}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Clean Final Exam Submit Button */}
+            <div className="pt-2 pb-4">
+              <button
+                onClick={() => setConfirmSubmitOpen(true)}
+                className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 shadow-sky-100 active:scale-[0.99]"
+              >
+                <Send className="w-3.5 h-3.5" />
+                <span>Final Exam Submit</span>
+              </button>
+            </div>
+          </div>
+
+          {/* RIGHT 50%: Selected Compiler Lab, Action Bar, & Output */}
+          <div className="flex flex-col h-full lg:overflow-y-auto pl-0 lg:pl-1 space-y-4">
+            <div className="h-full min-h-[560px] flex flex-col">
+              {activeCompilerDomain === 'python' && (
+                <PythonCompiler
+                  starterCode={compilerCode['coding-py-1'] || ''}
+                  onCodeChange={(code) => updateCompilerCode('coding-py-1', code)}
+                  onSaveCode={(code) => updateCompilerCode('coding-py-1', code)}
+                />
+              )}
+              {activeCompilerDomain === 'sql' && (
+                <SqlCompiler
+                  starterCode={compilerCode['coding-sql-1'] || ''}
+                  onCodeChange={(code) => updateCompilerCode('coding-sql-1', code)}
+                  onSaveCode={(code) => updateCompilerCode('coding-sql-1', code)}
+                />
+              )}
+              {activeCompilerDomain === 'power_bi' && (
+                <PowerBICompiler
+                  starterCode={compilerCode['coding-pb-1'] || ''}
+                  onCodeChange={(code) => updateCompilerCode('coding-pb-1', code)}
+                  onSaveCode={(code) => updateCompilerCode('coding-pb-1', code)}
+                />
+              )}
+              {activeCompilerDomain === 'sas' && (
+                <SasCompiler
+                  starterCode={compilerCode['coding-sas-1'] || ''}
+                  onCodeChange={(code) => updateCompilerCode('coding-sas-1', code)}
+                  onSaveCode={(code) => updateCompilerCode('coding-sas-1', code)}
+                />
+              )}
+              {activeCompilerDomain === 'excel_ai' && (
+                <ExcelAiCompiler
+                  starterCode={compilerCode['coding-excel-1'] || ''}
+                  onCodeChange={(code) => updateCompilerCode('coding-excel-1', code)}
+                  onSaveCode={(code) => updateCompilerCode('coding-excel-1', code)}
+                />
+              )}
+            </div>
+          </div>
+
+        </main>
+      )}
 
       {/* Confirmation Modal */}
       {confirmSubmitOpen && (
@@ -363,7 +734,7 @@ export const ExamEnvironment = () => {
             <AlertCircle className="w-12 h-12 text-sky-600 mx-auto mb-3" />
             <h3 className="text-lg font-bold text-slate-900 mb-1">Submit Assessment?</h3>
             <p className="text-xs text-slate-500 mb-5">
-              You have answered {Object.keys(activeSession.userAnswers).length} of 30 questions and saved 5 compiler lab solutions. Once submitted, you cannot re-enter the test.
+              You have answered {Object.keys(userAnswers).length} of {mcqs.length || 30} questions and saved {Object.keys(compilerCode).length} compiler lab solutions. Once submitted, you cannot re-enter the test.
             </p>
             <div className="flex gap-3">
               <button
@@ -375,11 +746,12 @@ export const ExamEnvironment = () => {
               <button
                 onClick={() => {
                   setConfirmSubmitOpen(false);
+                  markSubmitting();
                   submitExam();
                 }}
                 className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-md"
               >
-                Confirm Submit
+                Confirm & Submit
               </button>
             </div>
           </div>

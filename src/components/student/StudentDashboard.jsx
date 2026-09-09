@@ -25,26 +25,26 @@ export const StudentDashboard = () => {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans select-none">
       {/* Header */}
-      <header className="bg-white border-b border-slate-200 px-6 py-3 flex items-center justify-between shadow-xs sticky top-0 z-30">
+      <header className="bg-white border-b border-slate-200 px-6 py-3.5 flex items-center justify-between shadow-xs sticky top-0 z-30">
         <div className="flex items-center gap-4">
-          <img src={logo} alt="DV Logo" className="h-8 object-contain" />
-          <div className="h-5 w-px bg-slate-200"></div>
+          <img src={logo} alt="DV Logo" className="h-9 object-contain" />
+          <div className="h-6 w-px bg-slate-200"></div>
           <div>
-            <h1 className="text-sm font-bold text-slate-900">Student Assessment Portal</h1>
-            <p className="text-[11px] text-slate-500 flex items-center gap-2">
-              <span>LMS ID: <strong className="text-sky-700 font-mono">{user?.lmsId}</strong></span>
-              <span>•</span>
-              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded font-bold">{studentCourse}</span>
-              <span>•</span>
-              <span className="bg-sky-50 text-sky-800 px-2 py-0.5 rounded font-mono font-bold">Batch: {studentBatch}</span>
+            <h1 className="text-base font-bold text-slate-900">Student Assessment Portal</h1>
+            <p className="text-xs sm:text-[13px] text-slate-600 flex items-center gap-2.5 mt-0.5">
+              <span>LMS ID: <strong className="text-sky-700 font-mono font-bold text-xs sm:text-[13px]">{user?.lmsId}</strong></span>
+              <span className="text-slate-400">•</span>
+              <span className="bg-slate-100 text-slate-800 border border-slate-200 px-2.5 py-0.5 rounded-md font-bold text-xs sm:text-[12px]">{studentCourse}</span>
+              <span className="text-slate-400">•</span>
+              <span className="bg-sky-50 text-sky-800 border border-sky-200 px-2.5 py-0.5 rounded-md font-mono font-bold text-xs sm:text-[12px]">Batch: {studentBatch}</span>
             </p>
           </div>
         </div>
 
         <div className="flex items-center gap-3">
-          <div className="hidden sm:flex items-center gap-2 bg-slate-100 border border-slate-200 px-3 py-1 rounded-full text-xs font-medium text-slate-700">
-            <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-            <span>{user?.name}</span>
+          <div className="hidden sm:flex items-center gap-2 bg-slate-100 border border-slate-200 px-3.5 py-1.5 rounded-full text-sm font-medium text-slate-700">
+            <UserCheck className="w-4 h-4 text-emerald-600" />
+            <span className="font-bold text-slate-900 text-sm">{user?.name}</span>
           </div>
 
           <button
@@ -101,11 +101,7 @@ export const StudentDashboard = () => {
                     </span>
 
                     {/* Assessment Type Badge */}
-                    <span className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase ${
-                      test.assessmentType === 'compiler'
-                        ? 'bg-purple-100 text-purple-900 border border-purple-300'
-                        : 'bg-slate-100 text-slate-800'
-                    }`}>
+                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase bg-slate-100 text-slate-800 border border-slate-200">
                       {test.assessmentType === 'compiler' ? 'Compiler Assessment Only (Hands-On Code)' : 'MCQ Assessment'}
                     </span>
                   </div>
@@ -150,9 +146,7 @@ export const StudentDashboard = () => {
                     }
                     startExamSession(test, user);
                   }}
-                  className={`w-full py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 ${
-                    test.assessmentType === 'compiler' ? 'bg-purple-700 hover:bg-purple-800 shadow-purple-100' : 'bg-sky-600 hover:bg-sky-700 shadow-sky-100'
-                  }`}
+                  className="w-full py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 shadow-sky-100"
                 >
                   <Play className="w-3.5 h-3.5 fill-current" />
                   <span>

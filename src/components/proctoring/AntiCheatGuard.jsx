@@ -31,10 +31,12 @@ export const AntiCheatGuard = ({
   const [activeAlert, setActiveAlert] = useState(null);
   const videoRef = useRef(null);
 
-  // Attach live video feed
+  // Attach live video feed safely without resetting stream
   useEffect(() => {
     if (videoRef.current && mediaStream) {
-      videoRef.current.srcObject = mediaStream;
+      if (videoRef.current.srcObject !== mediaStream) {
+        videoRef.current.srcObject = mediaStream;
+      }
     }
   }, [mediaStream]);
 
@@ -58,7 +60,7 @@ export const AntiCheatGuard = ({
     <>
       {/* Real-Time Warning Alert Toast Banner */}
       {activeAlert && (
-        <div className="bg-rose-600 text-white px-4 py-2.5 shadow-lg border-b border-rose-700 flex items-center justify-between text-xs font-bold animate-bounce z-50">
+        <div className="bg-rose-600 text-white px-4 py-2.5 shadow-lg border-b border-rose-700 flex items-center justify-between text-xs font-bold z-50 transition-all duration-300">
           <div className="flex items-center gap-2 max-w-4xl">
             <AlertTriangle className="w-4 h-4 shrink-0 text-amber-300" />
             <span>
@@ -77,7 +79,38 @@ export const AntiCheatGuard = ({
         </div>
       )}
 
-      {/* Main Guard Status Bar */}
+      {/* Automatic Fullscreen Enforcement Modal */}
+      {!isFullscreen && (
+        <div 
+          onClick={requestFullscreen}
+          className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs z-50 flex items-center justify-center p-4 cursor-pointer"
+        >
+          <div 
+            className="bg-white rounded-2xl p-7 max-w-md w-full shadow-2xl border border-sky-200 text-center select-none transform transition hover:scale-[1.01]"
+            onClick={(e) => {
+              e.stopPropagation();
+              requestFullscreen();
+            }}
+          >
+            <div className="w-16 h-16 bg-sky-100 text-sky-600 rounded-full flex items-center justify-center mx-auto mb-4 animate-bounce">
+              <Maximize2 className="w-8 h-8" />
+            </div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Fullscreen Examination Required</h3>
+            <p className="text-xs text-slate-600 mb-6 leading-relaxed">
+              To ensure assessment integrity and activate secure proctoring, this test must be conducted in full screen mode. Click below or anywhere on this screen to automatically convert to full screen.
+            </p>
+            <button
+              onClick={requestFullscreen}
+              className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 shadow-sky-100"
+            >
+              <Maximize2 className="w-4 h-4" />
+              <span>Convert To Fullscreen Mode</span>
+            </button>
+            <p className="text-[11px] text-slate-400 mt-3 font-medium">Click anywhere to activate fullscreen</p>
+          </div>
+        </div>
+      )}
+
       <div className="bg-white border-b border-slate-200 px-4 py-2 flex flex-wrap items-center justify-between text-xs font-medium text-slate-700 shadow-sm select-none">
         {/* Left: Security status & Devices */}
         <div className="flex flex-wrap items-center gap-2.5">
@@ -115,7 +148,7 @@ export const AntiCheatGuard = ({
             ) : (
               <CameraOff className="w-3 h-3 text-rose-600" />
             )}
-            <span>Camera: {cameraStatus.toUpperCase()}</span>
+            <span>Camera: {(cameraStatus || 'requesting').toUpperCase()}</span>
           </div>
 
           {/* Microphone Status Badge */}
@@ -131,7 +164,7 @@ export const AntiCheatGuard = ({
             ) : (
               <MicOff className="w-3 h-3 text-rose-600" />
             )}
-            <span>Mic: {microphoneStatus.toUpperCase()}</span>
+            <span>Mic: {(microphoneStatus || 'requesting').toUpperCase()}</span>
           </div>
 
           {/* Retry media button if permission denied or unavailable */}
@@ -175,7 +208,7 @@ export const AntiCheatGuard = ({
             className="flex items-center gap-1 text-slate-600 hover:text-slate-900 underline font-medium"
           >
             <Eye className="w-3.5 h-3.5" />
-            <span>Audit Log ({proctorLogs.length})</span>
+            <span>Audit Log ({(proctorLogs || []).length})</span>
           </button>
         </div>
 
@@ -207,7 +240,7 @@ export const AntiCheatGuard = ({
               <button onClick={() => setShowLogs(false)} className="text-slate-400 hover:text-white">✕ Close</button>
             </div>
             <div className="space-y-1">
-              {proctorLogs.map((log, idx) => (
+              {(proctorLogs || []).map((log, idx) => (
                 <div key={idx} className="flex items-start gap-2">
                   <span className="text-slate-500">[{log.timestamp}]</span>
                   <span

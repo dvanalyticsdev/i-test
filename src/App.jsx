@@ -6,6 +6,8 @@ import { StudentDashboard } from './components/student/StudentDashboard';
 import { ExamEnvironment } from './components/student/ExamEnvironment';
 import { AdminDashboard } from './components/admin/AdminDashboard';
 
+import { ErrorBoundary } from './components/common/ErrorBoundary';
+
 const MainContent = () => {
   const { user } = useAuth();
   const { activeSession } = useExam();
@@ -28,10 +30,12 @@ const MainContent = () => {
 
 export default function App() {
   return (
-    <AuthProvider>
-      <ExamProvider>
-        <MainContent />
-      </ExamProvider>
-    </AuthProvider>
+    <ErrorBoundary>
+      <AuthProvider>
+        <ExamProvider>
+          <MainContent />
+        </ExamProvider>
+      </AuthProvider>
+    </ErrorBoundary>
   );
 }

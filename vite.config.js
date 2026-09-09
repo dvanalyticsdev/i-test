@@ -1,11 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import tailwindcss from '@tailwindcss/vite';
+import { proctorApiMiddleware } from './server/proctorBackend.js';
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    {
+      name: 'proctor-backend-api',
+      configureServer(server) {
+        server.middlewares.use(proctorApiMiddleware);
+      },
+      configurePreviewServer(server) {
+        server.middlewares.use(proctorApiMiddleware);
+      }
+    }
   ],
   server: {
     port: 3000,
