@@ -338,6 +338,30 @@ export const ExamProvider = ({ children }) => {
     return assessments.find(a => a.id === assessmentId);
   };
 
+  const deleteSubmission = async (submissionId) => {
+    setSubmissions(prev => prev.filter(s => s.id !== submissionId && s.sessionId !== submissionId));
+    try {
+      await fetch(`/api/submissions/${encodeURIComponent(submissionId)}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('[ExamContext] Failed to delete submission on server:', e);
+    }
+  };
+
+  const deleteSubmissions = async (submissionIds) => {
+    if (!Array.isArray(submissionIds) || submissionIds.length === 0) return;
+    const idSet = new Set(submissionIds);
+    setSubmissions(prev => prev.filter(s => !idSet.has(s.id) && !idSet.has(s.sessionId)));
+    try {
+      await fetch('/api/submissions/bulk-delete', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids: submissionIds })
+      });
+    } catch (e) {
+      console.warn('[ExamContext] Failed to bulk delete submissions on server:', e);
+    }
+  };
+
   return (
     <ExamContext.Provider
       value={{
@@ -349,6 +373,8 @@ export const ExamProvider = ({ children }) => {
         questionBank,
         scheduledTests,
         submissions,
+        deleteSubmission,
+        deleteSubmissions,
         activeSession,
         sessionReady,
         assessmentLocked,

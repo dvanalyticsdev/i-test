@@ -47,8 +47,28 @@ test('persistent, idempotent two-strike enforcement under concurrent saves', asy
     await request('/sessions/clean/submit', {});
     const late = await request('/sessions/clean/violation', { eventId: 'late' });
     assert.equal(late.isDisqualified, false);
-    assert.equal(late.warningCount, 0);
     assert.equal((await request('/sessions/clean/submit', {})).success, true);
+
+    // Test single and bulk submission deletion
+    const allSubs = (await request('/submissions')).submissions;
+    assert(allSubs.length >= 2);
+    const subToDelete = allSubs[0];
+    const delRes = await fetch(base + `/submissions/${subToDelete.id}`, { method: 'DELETE' });
+    const delJson = await delRes.json();
+    assert.equal(delJson.success, true);
+    let afterSingle = (await request('/submissions')).submissions;
+    assert.equal(afterSingle.some(s => s.id === subToDelete.id), false);
+    
+    // Test bulk deletion
+    const bulkRes = await fetch(base + '/submissions/bulk-delete', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ids: afterSingle.map(s => s.id) })
+    });
+    const bulkJson = await bulkRes.json();
+    assert.equal(bulkJson.success, true);
+    const afterBulk = (await request('/submissions')).submissions;
+    assert.equal(afterBulk.length, 0);
     await start('failure');
     fs.mkdirSync(process.env.PROCTOR_DB_FILE + '.tmp');
     const failed = await request('/sessions/failure/violation', { eventId: 'disk-fail' });

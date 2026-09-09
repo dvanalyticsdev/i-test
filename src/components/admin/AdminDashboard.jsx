@@ -10,7 +10,6 @@ import {
   LogOut, 
   Menu, 
   X, 
-  ShieldCheck, 
   ChevronRight 
 } from 'lucide-react';
 import logo from '../../assets/DV-Logo.png';
@@ -189,27 +188,7 @@ export const AdminDashboard = () => {
             </nav>
           </div>
 
-          {/* Sidebar Footer info */}
-          <div className="p-3 border-t border-slate-100 bg-slate-50/50">
-            {isSidebarCollapsed ? (
-              <div className="hidden md:flex flex-col items-center py-2 text-slate-400" title="Security & Proctoring Active">
-                <ShieldCheck className="w-5 h-5 text-emerald-600" />
-              </div>
-            ) : (
-              <div className="flex items-center gap-2.5 p-2 bg-white rounded-xl border border-slate-200 text-xs">
-                <div className="w-7 h-7 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-4 h-4" />
-                </div>
-                <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase text-slate-400 block leading-tight">System Status</span>
-                  <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1 truncate">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-                    Live Evaluation Mode
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
+
         </aside>
 
         {/* Main Content Area - Expands to occupy full available width */}

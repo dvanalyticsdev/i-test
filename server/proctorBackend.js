@@ -102,7 +102,7 @@ async function handleApiRoute(req, res) {
   const method = req.method;
   // Finish asynchronous input before reading state. All mutations below are
   // synchronous read/modify/atomic-rename transactions in this server process.
-  const body = method === 'POST' ? await parseJsonBody(req) : {};
+  const body = (method === 'POST' || method === 'DELETE') ? await parseJsonBody(req) : {};
   const db = readDb();
 
   // 1. Health check
@@ -370,6 +370,26 @@ async function handleApiRoute(req, res) {
   // 8. Submissions list: GET /api/submissions
   if (url.startsWith('/api/submissions') && method === 'GET') {
     return sendJson(res, 200, { success: true, submissions: db.submissions || [] });
+  }
+
+  // 9. Bulk delete submissions: POST /api/submissions/bulk-delete or DELETE /api/submissions
+  if ((url === '/api/submissions/bulk-delete' && method === 'POST') || (url === '/api/submissions' && method === 'DELETE')) {
+    const ids = Array.isArray(body.ids) ? body.ids : [];
+    const idSet = new Set(ids);
+    const beforeCount = (db.submissions || []).length;
+    db.submissions = (db.submissions || []).filter(s => !idSet.has(s.id) && !idSet.has(s.sessionId));
+    writeDb(db);
+    return sendJson(res, 200, { success: true, deletedCount: beforeCount - db.submissions.length });
+  }
+
+  // 10. Delete single submission: DELETE /api/submissions/:id
+  const deleteSubMatch = url.match(/^\/api\/submissions\/([^/?]+)$/);
+  if (deleteSubMatch && method === 'DELETE') {
+    const subId = decodeURIComponent(deleteSubMatch[1]);
+    const beforeCount = (db.submissions || []).length;
+    db.submissions = (db.submissions || []).filter(s => s.id !== subId && s.sessionId !== subId);
+    writeDb(db);
+    return sendJson(res, 200, { success: true, deleted: beforeCount > db.submissions.length, deletedId: subId });
   }
 
   // Fallback for unhandled /api/
