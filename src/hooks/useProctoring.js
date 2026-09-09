@@ -1,6 +1,11 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
+import { createIncidentCoordinator } from '../utils/proctorEvents.js';
+const reloadEvents = new Map();
+let restoredSessionId;
+try { restoredSessionId = JSON.parse(localStorage.getItem('i_test_active_session'))?.sessionId; } catch {}
+const navigationKey = id => 'i_test_departure_' + id;
 
-export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamActive, initialWarningCount = 0 }) {
+export function useProctoring({ onViolation, isExamActive, sessionId }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTabFocused, setIsTabFocused] = useState(true);
   const [isMultiMonitorDetected, setIsMultiMonitorDetected] = useState(false);
@@ -14,13 +19,17 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
 
   // Stable references to prevent unnecessary re-render cascades
   const onViolationRef = useRef(onViolation);
-  const onAutoSubmitDisqualifiedRef = useRef(onAutoSubmitDisqualified);
+  const activeRef = useRef(isExamActive);
+  activeRef.current = isExamActive;
+  const generationRef = useRef(0);
+  const permissionPendingRef = useRef(false);
+  const fullscreenPendingRef = useRef(false);
+  const incidentsRef = useRef(createIncidentCoordinator());
+  const emittedRef = useRef(new Set());
   const mediaStreamRef = useRef(null);
+  const mediaIncidentRef = useRef(null);
   const hasRequestedMediaRef = useRef(false);
 
-  const violationCountRef = useRef(initialWarningCount);
-  const examStartTimeRef = useRef(Date.now());
-  const lastViolationTimeRef = useRef(0);
   const userEnteredFullscreenRef = useRef(false);
   const isSubmittingRef = useRef(false);
   const initMediaDevicesRef = useRef(null);
@@ -30,44 +39,13 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     onViolationRef.current = onViolation;
   }, [onViolation]);
 
-  useEffect(() => {
-    onAutoSubmitDisqualifiedRef.current = onAutoSubmitDisqualified;
-  }, [onAutoSubmitDisqualified]);
 
-  useEffect(() => {
-    violationCountRef.current = initialWarningCount;
-  }, [initialWarningCount]);
 
-  // Stable triggerViolation: Does not re-create on every render
-  const triggerViolation = useCallback((reason) => {
-    const now = Date.now();
-
-    // 1. Initial 3-second grace period on exam launch to allow UI and browser rendering to settle
-    if (now - examStartTimeRef.current < 3000) {
-      console.log(`[Proctor Guard] Grace period active (ignored: ${reason})`);
-      return;
-    }
-
-    // 2. Cooldown of 2.5 seconds between events to prevent double counting from linked browser events
-    if (now - lastViolationTimeRef.current < 2500) {
-      console.log(`[Proctor Guard] Cooldown active (throttled: ${reason})`);
-      return;
-    }
-
-    lastViolationTimeRef.current = now;
-    violationCountRef.current += 1;
-    const currentCount = violationCountRef.current;
-
+  const triggerViolation = useCallback((reason, eventId = incidentsRef.current.action()) => {
+    if (!activeRef.current || isSubmittingRef.current || emittedRef.current.has(eventId)) return;
+    emittedRef.current.add(eventId);
     setLastWarningMessage(reason);
-
-    if (onViolationRef.current) {
-      onViolationRef.current(reason, currentCount);
-    }
-
-    // After the second violation, immediately trigger automatic submission and lock assessment
-    if (currentCount >= 2 && onAutoSubmitDisqualifiedRef.current) {
-      onAutoSubmitDisqualifiedRef.current(reason);
-    }
+    onViolationRef.current?.(reason, eventId);
   }, []);
 
   const triggerViolationRef = useRef(triggerViolation);
@@ -77,6 +55,8 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
 
   // Request & Monitor Camera and Microphone Permissions via getUserMedia (executed ONCE)
   const initMediaDevices = useCallback(async (forceRetry = false) => {
+    if (!activeRef.current || permissionPendingRef.current) return;
+    const generation = generationRef.current;
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus('unavailable');
       setMicrophoneStatus('unavailable');
@@ -91,10 +71,11 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
 
     // If tracks are still active, stop them before retrying
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+      mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
       mediaStreamRef.current = null;
     }
 
+    permissionPendingRef.current = true;
     try {
       setCameraStatus('requesting');
       setMicrophoneStatus('requesting');
@@ -104,7 +85,12 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
         audio: true
       });
 
+      if (!activeRef.current || generation !== generationRef.current) {
+        stream.getTracks().forEach(t => t.stop());
+        return;
+      }
       mediaStreamRef.current = stream;
+      mediaIncidentRef.current = crypto.randomUUID();
       setMediaStream(stream);
       setCameraStatus('granted');
       setMicrophoneStatus('granted');
@@ -113,18 +99,21 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       // Listen for hardware disconnects on tracks
       stream.getVideoTracks().forEach((track) => {
         track.onended = () => {
+          if (!activeRef.current || generation !== generationRef.current) return;
           setCameraStatus('disconnected');
-          triggerViolationRef.current('Webcam disconnected or disabled during active assessment');
+          triggerViolationRef.current('Webcam disconnected or disabled during active assessment', mediaIncidentRef.current);
         };
       });
 
       stream.getAudioTracks().forEach((track) => {
         track.onended = () => {
+          if (!activeRef.current || generation !== generationRef.current) return;
           setMicrophoneStatus('disconnected');
-          triggerViolationRef.current('Microphone disconnected or disabled during active assessment');
+          triggerViolationRef.current('Microphone disconnected or disabled during active assessment', mediaIncidentRef.current);
         };
       });
     } catch (err) {
+      if (!activeRef.current || generation !== generationRef.current) return;
       console.warn('Proctor Media Stream Permission Issue:', err.name, err.message);
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraStatus('denied');
@@ -139,6 +128,8 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
         setMicrophoneStatus('unavailable');
         setDeviceErrorDetails(err.message || 'Media hardware unavailable');
       }
+    } finally {
+      if (generation === generationRef.current) permissionPendingRef.current = false;
     }
   }, []);
 
@@ -150,7 +141,7 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
   useEffect(() => {
     if (!isExamActive) {
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
       }
@@ -158,8 +149,19 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       return;
     }
 
-    examStartTimeRef.current = Date.now();
-    violationCountRef.current = initialWarningCount;
+    generationRef.current += 1;
+    isSubmittingRef.current = false;
+    permissionPendingRef.current = false;
+    fullscreenPendingRef.current = false;
+    userEnteredFullscreenRef.current = false;
+    incidentsRef.current = createIncidentCoordinator();
+    emittedRef.current = new Set();
+    if (sessionId === restoredSessionId && performance.getEntriesByType('navigation')[0]?.type === 'reload' && !reloadEvents.has(sessionId)) {
+      const eventId = sessionStorage.getItem(navigationKey(sessionId)) || crypto.randomUUID();
+      sessionStorage.removeItem(navigationKey(sessionId));
+      reloadEvents.set(sessionId, eventId);
+      triggerViolationRef.current('Page refresh detected during active assessment', eventId);
+    }
 
     // 1. Initialize AV devices on assessment start once
     let mediaTimer = null;
@@ -174,18 +176,20 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     }
 
     // 2. Hardware device changes listener
+    const deviceGeneration = generationRef.current;
     const handleDeviceChange = async () => {
       try {
         const devices = await navigator.mediaDevices.enumerateDevices();
+        if (!activeRef.current || generationRef.current !== deviceGeneration) return;
         const hasVideo = devices.some((d) => d.kind === 'videoinput');
         const hasAudio = devices.some((d) => d.kind === 'audioinput');
-        if (!hasVideo && cameraStatus === 'granted') {
+        if (!hasVideo && mediaStreamRef.current?.getVideoTracks().some(t => t.readyState === 'live')) {
           setCameraStatus('disconnected');
-          triggerViolationRef.current('Camera device unplugged or lost during test');
+          triggerViolationRef.current('Camera device unplugged or lost during test', mediaIncidentRef.current);
         }
-        if (!hasAudio && microphoneStatus === 'granted') {
+        if (!hasAudio && mediaStreamRef.current?.getAudioTracks().some(t => t.readyState === 'live')) {
           setMicrophoneStatus('disconnected');
-          triggerViolationRef.current('Audio input device unplugged or lost during test');
+          triggerViolationRef.current('Audio input device unplugged or lost during test', mediaIncidentRef.current);
         }
       } catch (e) {
         // Safe fallback
@@ -225,26 +229,37 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     };
     checkDisplaySetup();
 
+    const departureId = () => {
+      const id = incidentsRef.current.leave();
+      sessionStorage.setItem(navigationKey(sessionId), id);
+      return id;
+    };
+    const returned = () => {
+      incidentsRef.current.returned(!!document.fullscreenElement);
+      sessionStorage.removeItem(navigationKey(sessionId));
+    };
     // 4. Tab Visibility Switch Monitor (1st & 2nd warning -> auto submit)
     const handleVisibilityChange = () => {
       if (document.hidden) {
         setIsTabFocused(false);
-        triggerViolationRef.current('Tab switch / background window transition detected');
-      } else {
+        triggerViolationRef.current('Tab switch / background window transition detected', departureId());
+      } else if (document.hasFocus()) {
         setIsTabFocused(true);
+        returned();
       }
     };
 
     // 5. Window Blur (Leaving application, switching window, Alt+Tab)
     const handleWindowBlur = () => {
       // Do not log violation if the candidate is legitimately submitting or test is inactive
-      if (isSubmittingRef.current || !isExamActive) return;
+      if (isSubmittingRef.current || !activeRef.current || permissionPendingRef.current || fullscreenPendingRef.current) return;
       setIsTabFocused(false);
-      triggerViolationRef.current('Window focus lost / switched away from assessment screen');
+      triggerViolationRef.current('Window focus lost / switched away from assessment screen', departureId());
     };
 
     const handleWindowFocus = () => {
-      setIsTabFocused(true);
+      if (!document.hidden) returned();
+      setIsTabFocused(!document.hidden);
     };
 
     // 6. Fullscreen Change Monitor
@@ -258,10 +273,11 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       setIsFullscreen(isFull);
 
       if (isFull) {
+        incidentsRef.current.enteredFullscreen();
         userEnteredFullscreenRef.current = true;
       } else {
-        if (userEnteredFullscreenRef.current) {
-          triggerViolationRef.current('Exited forced fullscreen examination mode');
+        if (userEnteredFullscreenRef.current && !permissionPendingRef.current && !fullscreenPendingRef.current) {
+          triggerViolationRef.current('Exited forced fullscreen examination mode', incidentsRef.current.exitFullscreen());
         }
       }
     };
@@ -290,6 +306,10 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     // 8. Keyboard DevTools / Source / Screenshot / Reload blocks
     const handleKeyDown = (e) => {
       const isCtrlOrCmd = e.ctrlKey || e.metaKey;
+      if (e.repeat) {
+        if (['F5', 'F12', 'PrintScreen'].includes(e.key) || (isCtrlOrCmd && /^[rwuscvxij]$/i.test(e.key))) e.preventDefault();
+        return;
+      }
 
       // Prevent page reload keystrokes (F5, Ctrl+R, Cmd+R, Ctrl+Shift+R) and closing shortcut (Ctrl+W)
       if (
@@ -299,7 +319,9 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       ) {
         e.preventDefault();
         e.stopPropagation();
-        triggerViolationRef.current('Restricted action: Page refresh / window close shortcut attempted');
+        const id = incidentsRef.current.action();
+        sessionStorage.setItem(navigationKey(sessionId), id);
+        triggerViolationRef.current('Restricted action: Page refresh / window close shortcut attempted', id);
         return;
       }
 
@@ -343,24 +365,14 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       }
     };
 
-    // Prevent navigation / tab closing confirmation
-    const handleBeforeUnload = (e) => {
-      // If candidate is legitimately submitting or exam is finished, do not prompt
-      if (isSubmittingRef.current || !isExamActive) {
-        return;
-      }
+    // Reload detection happens after navigation. Never cancel beforeunload.
 
-      // Standard beforeunload pattern: set returnValue and prompt cleanly
-      e.preventDefault();
-      e.returnValue = 'You have an active examination session in progress. Leaving or reloading will forfeit your progress.';
-      return e.returnValue;
-    };
+    const handleKeyUp = () => { if (!document.hidden && document.hasFocus()) sessionStorage.removeItem(navigationKey(sessionId)); };
 
     // Attach listeners
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('blur', handleWindowBlur);
     window.addEventListener('focus', handleWindowFocus);
-    window.addEventListener('beforeunload', handleBeforeUnload);
     document.addEventListener('fullscreenchange', handleFullscreenChange);
     document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
     document.addEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -370,12 +382,14 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     document.addEventListener('paste', handlePaste);
     document.addEventListener('contextmenu', handleContextMenu);
     document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('keyup', handleKeyUp);
 
     return () => {
+      generationRef.current += 1;
+      permissionPendingRef.current = false;
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('blur', handleWindowBlur);
       window.removeEventListener('focus', handleWindowFocus);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
       document.removeEventListener('fullscreenchange', handleFullscreenChange);
       document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
       document.removeEventListener('mozfullscreenchange', handleFullscreenChange);
@@ -385,26 +399,28 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       document.removeEventListener('paste', handlePaste);
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('keyup', handleKeyUp);
 
       if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
       }
 
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => t.stop());
+        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
       }
       if (mediaTimer) clearTimeout(mediaTimer);
       hasRequestedMediaRef.current = false;
     };
-  }, [isExamActive]);
+  }, [isExamActive, sessionId]);
 
   const markSubmitting = useCallback(() => {
     isSubmittingRef.current = true;
   }, []);
 
   const requestFullscreen = useCallback(() => {
+    if (!activeRef.current || fullscreenPendingRef.current || document.fullscreenElement) return;
     const elem = document.documentElement;
     const requestMethod =
       elem.requestFullscreen ||
@@ -413,15 +429,17 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
       elem.msRequestFullscreen;
 
     if (requestMethod) {
-      requestMethod
-        .call(elem)
+      const generation = generationRef.current;
+      fullscreenPendingRef.current = true;
+      Promise.resolve().then(() => requestMethod.call(elem))
         .then(() => {
+          if (!activeRef.current || generationRef.current !== generation) return;
           setIsFullscreen(true);
           userEnteredFullscreenRef.current = true;
         })
         .catch((err) => {
           console.warn('Fullscreen request declined:', err);
-        });
+        }).finally(() => { if (generationRef.current === generation) fullscreenPendingRef.current = false; });
     }
   }, []);
 
@@ -436,6 +454,7 @@ export function useProctoring({ onViolation, onAutoSubmitDisqualified, isExamAct
     microphoneStatus,
     deviceErrorDetails,
     markSubmitting,
+    resumeProctoring: () => { isSubmittingRef.current = false; },
     retryMediaDevices: () => initMediaDevices(true)
   };
 }

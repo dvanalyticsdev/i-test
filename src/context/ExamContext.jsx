@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import { INITIAL_QUESTION_BANK, getRandomizedQuestions } from '../data/mockQuestionBank';
 import { INITIAL_ASSESSMENTS } from '../data/mockAssessmentRepository';
+
+import { queueExamRequest, flushExamRequests, pendingViolations, pendingDrafts, subscribeExamTransport } from '../utils/examTransport';
 
 const ExamContext = createContext();
 
@@ -136,41 +138,63 @@ export const ExamProvider = ({ children }) => {
     localStorage.setItem('i_test_submissions', JSON.stringify(submissions));
   }, [submissions]);
 
-  // Re-hydrate authoritative active session and submissions from backend on mount/refresh
-  useEffect(() => {
-    // 1. Sync submissions from backend
-    fetch('/api/submissions')
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.submissions && data.submissions.length > 0) {
-          setSubmissions(prev => {
-            const map = new Map();
-            data.submissions.forEach(s => map.set(s.id, s));
-            prev.forEach(s => {
-              if (!map.has(s.id)) map.set(s.id, s);
-            });
-            return Array.from(map.values());
-          });
-        }
-      })
-      .catch(() => {});
+  const activeSessionRef = useRef(activeSession);
+  activeSessionRef.current = activeSession;
+  const [sessionReady, setSessionReady] = useState(!activeSession);
+  const [, setTransportVersion] = useState(0);
+  const submittingRef = useRef(false);
 
-    // 2. Sync authoritative activeSession if one is currently stored
-    if (activeSession && activeSession.sessionId) {
-      fetch(`/api/sessions/${activeSession.sessionId}`)
-        .then(res => res.json())
-        .then(data => {
-          if (data.success && data.session) {
-            console.log('[ExamContext] Authoritative session synced from server:', data.session.status);
-            setActiveSession(data.session);
-            localStorage.setItem('i_test_active_session', JSON.stringify(data.session));
-          }
-        })
-        .catch(err => {
-          console.warn('[ExamContext] Could not sync active session with backend:', err);
-        });
-    }
+  const mergeServerSession = (session) => {
+    setActiveSession(prev => {
+      if (!prev || prev.sessionId !== session.sessionId) return prev;
+      if ((prev.isFinished && !session.isFinished) || (prev.warningCount || 0) > (session.warningCount || 0)) return prev;
+      if ((session.revision || 0) < (prev.revision || 0)) return prev;
+      const drafts = pendingDrafts(session.sessionId);
+      return { ...prev, ...session,
+        userAnswers: { ...session.userAnswers, ...drafts.userAnswers },
+        compilerCode: { ...session.compilerCode, ...drafts.compilerCode },
+        currentQuestionIndex: prev.currentQuestionIndex,
+        activeSection: prev.activeSection,
+        markedForReview: prev.markedForReview
+      };
+    });
+  };
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/submissions').then(res => res.json()).then(data => {
+      if (!cancelled && data.success) setSubmissions(data.submissions || []);
+    }).catch(() => {});
+    const unsubscribe = subscribeExamTransport((entry, data) => {
+      if (cancelled) return;
+      setTransportVersion(v => v + 1);
+      if (data?.session) mergeServerSession(data.session);
+      else if (data?.revision !== undefined) setActiveSession(prev => prev?.sessionId === entry.sessionId ? { ...prev, revision: Math.max(prev.revision || 0, data.revision) } : prev);
+      if (data?.submission) setSubmissions(prev => [data.submission, ...prev.filter(s => s.sessionId !== data.submission.sessionId)]);
+    });
+    const restore = async () => {
+      const delivered = await flushExamRequests();
+      if (cancelled) return;
+      const session = activeSessionRef.current;
+      if (!session) return;
+      try {
+        const res = await fetch('/api/sessions/' + session.sessionId);
+        const data = await res.json();
+        if (cancelled || activeSessionRef.current?.sessionId !== session.sessionId) return;
+        if (res.ok && data.success) {
+          mergeServerSession(data.session);
+          setSessionReady(delivered);
+        }
+      } catch { /* Keep restored sessions locked until reconciliation succeeds. */ }
+    };
+    restore();
+    const timer = setInterval(restore, 5000);
+    window.addEventListener('online', restore);
+    return () => { cancelled = true; unsubscribe(); clearInterval(timer); window.removeEventListener('online', restore); };
   }, []);
+
+  const pendingCount = activeSession ? pendingViolations(activeSession.sessionId).length : 0;
+  const assessmentLocked = !sessionReady || (activeSession?.warningCount || 0) + pendingCount >= 2;
 
   // Start Exam Session with Instant Activation & Server Sync
   const startExamSession = (testConfig, studentUser) => {
@@ -184,7 +208,7 @@ export const ExamProvider = ({ children }) => {
     const initialCompilers = isMcqOnly ? [] : (compilers || []);
     const initialMcqs = isCompilerOnly ? [] : (mcqs || []);
 
-    const sessionId = `SESS-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const sessionId = 'SESS-' + crypto.randomUUID();
 
     const newSession = {
       sessionId,
@@ -222,35 +246,9 @@ export const ExamProvider = ({ children }) => {
     setActiveSession(newSession);
     localStorage.setItem('i_test_active_session', JSON.stringify(newSession));
 
-    // 2. Sync to authoritative backend in the background
-    fetch('/api/sessions/start', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        testConfig,
-        studentUser,
-        mcqs: initialMcqs,
-        compilers: initialCompilers
-      })
-    })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success && data.session) {
-          console.log('[ExamContext] Registered session with server:', data.session.sessionId);
-          setActiveSession(prev => {
-            if (!prev) return data.session;
-            return {
-              ...prev,
-              sessionId: data.session.sessionId,
-              userAnswers: { ...data.session.userAnswers, ...prev.userAnswers },
-              compilerCode: { ...data.session.compilerCode, ...prev.compilerCode }
-            };
-          });
-        }
-      })
-      .catch(err => {
-        console.warn('[ExamContext] Backend start session registration deferred:', err);
-      });
+    setSessionReady(false);
+    queueExamRequest(sessionId, 'start', { sessionId, testConfig, studentUser, mcqs: initialMcqs, compilers: initialCompilers })
+      .then(ok => { if (activeSessionRef.current?.sessionId === sessionId) setSessionReady(ok); });
 
     return newSession;
   };
@@ -262,13 +260,7 @@ export const ExamProvider = ({ children }) => {
       userAnswers: { ...prev.userAnswers, [questionId]: optionIndex }
     }));
 
-    if (activeSession.sessionId) {
-      fetch(`/api/sessions/${activeSession.sessionId}/answer`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ questionId, optionIndex })
-      }).catch(() => {});
-    }
+    queueExamRequest(activeSession.sessionId, 'answer', { questionId, optionIndex });
   };
 
   const toggleMarkForReview = (questionId) => {
@@ -286,13 +278,7 @@ export const ExamProvider = ({ children }) => {
       compilerCode: { ...prev.compilerCode, [compilerId]: code }
     }));
 
-    if (activeSession.sessionId) {
-      fetch(`/api/sessions/${activeSession.sessionId}/compiler`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ compilerId, code })
-      }).catch(() => {});
-    }
+    return queueExamRequest(activeSession.sessionId, 'compiler', { compilerId, code });
   };
 
   const setCurrentQuestionIndex = (index) => {
@@ -305,176 +291,18 @@ export const ExamProvider = ({ children }) => {
     setActiveSession(prev => ({ ...prev, activeSection: section, currentQuestionIndex: 0 }));
   };
 
-  const registerProctorViolation = async (reason, customCount) => {
-    if (!activeSession || activeSession.isFinished) return;
-
-    // Send violation to authoritative backend
-    try {
-      if (activeSession.sessionId) {
-        const res = await fetch(`/api/sessions/${activeSession.sessionId}/violation`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ reason })
-        });
-        const data = await res.json();
-
-        if (data.success && data.session) {
-          // Authoritative server state update
-          setActiveSession(data.session);
-          localStorage.setItem('i_test_active_session', JSON.stringify(data.session));
-
-          if (data.isDisqualified && data.submission) {
-            setSubmissions(prev => {
-              const updated = [data.submission, ...prev.filter(s => s.id !== data.submission.id)];
-              localStorage.setItem('i_test_submissions', JSON.stringify(updated));
-              return updated;
-            });
-          }
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[ExamContext] Backend violation sync error, applying client fallback:', err);
-    }
-
-    // Client fallback enforcement
-    const timestamp = new Date().toLocaleTimeString();
-    const newWarningCount = customCount !== undefined ? customCount : (activeSession.warningCount + 1);
-
-    let logType = 'WARNING';
-    let message = `Warning ${newWarningCount}/2: ${reason}`;
-
-    if (newWarningCount >= 2) {
-      logType = 'CRITICAL';
-      message = `Violation ${newWarningCount}/2: Second violation detected (${reason}). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).`;
-    }
-
-    const updatedLogs = [
-      ...activeSession.proctorLogs,
-      { timestamp, type: logType, message, warningNum: newWarningCount }
-    ];
-
-    if (newWarningCount >= 2) {
-      const disqualifiedSubmission = {
-        id: 'SUB-' + Math.floor(1000 + Math.random() * 9000),
-        sessionId: activeSession.sessionId,
-        studentId: activeSession.studentId,
-        studentName: activeSession.studentName,
-        testId: activeSession.testId,
-        testTitle: activeSession.testTitle,
-        submittedAt: new Date().toLocaleString(),
-        score: '0 (Disqualified - 2 Violations)',
-        compilerStatus: 'Terminated on Second Strike',
-        cheatingStatus: 'DISQUALIFIED (CHEATING DETECTED - 2 STRIKES)',
-        proctorLogs: updatedLogs,
-        codeSubmitted: Object.values(activeSession.compilerCode || {}).join('\n\n---\n\n'),
-        status: 'DISQUALIFIED (CHEATING DETECTED)'
-      };
-
-      setSubmissions(prev => {
-        const next = [disqualifiedSubmission, ...prev.filter(s => s.id !== disqualifiedSubmission.id)];
-        localStorage.setItem('i_test_submissions', JSON.stringify(next));
-        return next;
-      });
-
-      const updatedSession = {
-        ...activeSession,
-        warningCount: newWarningCount,
-        proctorLogs: updatedLogs,
-        isFinished: true,
-        isDisqualified: true,
-        status: 'DISQUALIFIED',
-        submissionReason: 'AUTO_SUBMITTED_CHEATING',
-        disqualifiedReason: `Test Automatically Terminated: You triggered 2 anti-cheating violations (${reason}). As per exam policy, your assessment has been automatically submitted and recorded as DISQUALIFIED (CHEATING DETECTED). Further answering is disabled.`
-      };
-
-      setActiveSession(updatedSession);
-      localStorage.setItem('i_test_active_session', JSON.stringify(updatedSession));
-    } else {
-      const updatedSession = {
-        ...activeSession,
-        warningCount: newWarningCount,
-        proctorLogs: updatedLogs
-      };
-
-      setActiveSession(updatedSession);
-      localStorage.setItem('i_test_active_session', JSON.stringify(updatedSession));
-    }
+  const registerProctorViolation = (reason, eventId) => {
+    const session = activeSessionRef.current;
+    if (!session || session.isFinished) return;
+    return queueExamRequest(session.sessionId, 'violation', { reason, eventId });
   };
 
   const submitExam = async () => {
-    if (!activeSession) return;
-
-    // Never submit normally if the session is disqualified or terminated for cheating
-    if (
-      activeSession.isDisqualified ||
-      activeSession.status === 'DISQUALIFIED' ||
-      activeSession.disqualifiedReason ||
-      (activeSession.warningCount && activeSession.warningCount >= 2)
-    ) {
-      console.warn('[ExamContext] Blocked normal submission because session is disqualified.');
-      return;
-    }
-
-    try {
-      if (activeSession.sessionId) {
-        const res = await fetch(`/api/sessions/${activeSession.sessionId}/submit`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' }
-        });
-        const data = await res.json();
-        if (data.success && data.submission) {
-          setSubmissions(prev => {
-            const next = [data.submission, ...prev.filter(s => s.id !== data.submission.id)];
-            localStorage.setItem('i_test_submissions', JSON.stringify(next));
-            return next;
-          });
-          const finishedSession = { ...data.session, isFinished: true };
-          setActiveSession(finishedSession);
-          localStorage.setItem('i_test_active_session', JSON.stringify(finishedSession));
-          return;
-        }
-      }
-    } catch (err) {
-      console.warn('[ExamContext] Backend submit failed, using client grading fallback:', err);
-    }
-
-    // Client grading fallback
-    let scoreText = 'Compiler Assessment Submitted';
-    if (activeSession.mcqs && activeSession.mcqs.length > 0) {
-      let correctCount = 0;
-      activeSession.mcqs.forEach(q => {
-        if (activeSession.userAnswers[q.id] === q.correctAnswer) correctCount++;
-      });
-      const percent = Math.round((correctCount / activeSession.mcqs.length) * 100);
-      scoreText = `${correctCount}/${activeSession.mcqs.length} (${percent}%)`;
-    }
-
-    const finalSubmission = {
-      id: 'SUB-' + Math.floor(1000 + Math.random() * 9000),
-      sessionId: activeSession.sessionId,
-      studentId: activeSession.studentId,
-      studentName: activeSession.studentName,
-      testId: activeSession.testId,
-      testTitle: activeSession.testTitle,
-      submittedAt: new Date().toLocaleString(),
-      score: scoreText,
-      compilerStatus: activeSession.compilers && activeSession.compilers.length > 0 ? '5 Labs Saved' : 'N/A',
-      cheatingStatus: activeSession.warningCount === 0 ? 'Clean (0 Warnings)' : `${activeSession.warningCount} Warning(s) Logged`,
-      proctorLogs: activeSession.proctorLogs,
-      codeSubmitted: Object.values(activeSession.compilerCode || {}).join('\n\n---\n\n'),
-      status: 'SUBMITTED'
-    };
-
-    setSubmissions(prev => {
-      const next = [finalSubmission, ...prev.filter(s => s.id !== finalSubmission.id)];
-      localStorage.setItem('i_test_submissions', JSON.stringify(next));
-      return next;
-    });
-
-    const finishedSession = { ...activeSession, isFinished: true };
-    setActiveSession(finishedSession);
-    localStorage.setItem('i_test_active_session', JSON.stringify(finishedSession));
+    const session = activeSessionRef.current;
+    if (!session || session.isFinished || submittingRef.current || (session.warningCount || 0) + pendingViolations(session.sessionId).length >= 2) return false;
+    submittingRef.current = true;
+    try { return await queueExamRequest(session.sessionId, 'submit'); }
+    finally { submittingRef.current = false; }
   };
 
   const exitExam = () => {
@@ -522,6 +350,8 @@ export const ExamProvider = ({ children }) => {
         scheduledTests,
         submissions,
         activeSession,
+        sessionReady,
+        assessmentLocked,
         startExamSession,
         selectMcqAnswer,
         toggleMarkForReview,

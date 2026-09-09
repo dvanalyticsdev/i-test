@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useExam } from '../../context/ExamContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProctoring } from '../../hooks/useProctoring';
@@ -168,6 +168,8 @@ export const ExamEnvironment = () => {
   const { user } = useAuth();
   const {
     activeSession,
+    sessionReady,
+    assessmentLocked,
     selectMcqAnswer,
     toggleMarkForReview,
     updateCompilerCode,
@@ -182,13 +184,10 @@ export const ExamEnvironment = () => {
   const [activeCompilerDomain, setActiveCompilerDomain] = useState('python'); // 'python' | 'sql' | 'power_bi' | 'sas' | 'excel_ai'
 
   // Hook up Proctoring Guard with stable memoized handlers
-  const handleViolation = useCallback((reason, count) => {
-    registerProctorViolation(reason, count);
+  const handleViolation = useCallback((reason, eventId) => {
+    registerProctorViolation(reason, eventId);
   }, [registerProctorViolation]);
 
-  const handleAutoSubmit = useCallback((reason) => {
-    registerProctorViolation(reason, 2);
-  }, [registerProctorViolation]);
 
   const { 
     isFullscreen, 
@@ -198,62 +197,41 @@ export const ExamEnvironment = () => {
     microphoneStatus, 
     deviceErrorDetails, 
     markSubmitting,
+    resumeProctoring,
     retryMediaDevices 
   } = useProctoring({
     onViolation: handleViolation,
-    onAutoSubmitDisqualified: handleAutoSubmit,
-    isExamActive: Boolean(activeSession && !activeSession.isFinished),
-    initialWarningCount: activeSession?.warningCount || 0
+    isExamActive: Boolean(activeSession && !activeSession.isFinished && sessionReady && !assessmentLocked),
+    sessionId: activeSession?.sessionId,
   });
 
   // Timer countdown effect
   const [secondsLeft, setSecondsLeft] = useState(activeSession?.timeRemainingSeconds || 2700);
 
+  const submitRef = useRef(null);
+  const submitOnce = async () => {
+    markSubmitting();
+    const ok = await submitExam();
+    if (!ok) resumeProctoring();
+    return ok;
+  };
+  submitRef.current = submitOnce;
   useEffect(() => {
-    if (!activeSession || activeSession.isFinished) return;
-    const timer = setInterval(() => {
-      setSecondsLeft((prev) => {
-        if (prev <= 1) {
-          clearInterval(timer);
-          markSubmitting();
-          submitExam();
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-    return () => clearInterval(timer);
-  }, [activeSession, submitExam, markSubmitting]);
-
-  // Automatically convert into fullscreen on student interactions while giving the test
-  const isExamActive = Boolean(activeSession && !activeSession.isFinished);
-  useEffect(() => {
-    if (!isExamActive) return;
-
-    const handleAutoFullscreen = () => {
-      const isFull = !!(
-        document.fullscreenElement ||
-        document.webkitFullscreenElement ||
-        document.mozFullScreenElement ||
-        document.msFullscreenElement
-      );
-      if (!isFull) {
-        requestFullscreen();
+    if (!activeSession || activeSession.isFinished || !sessionReady || assessmentLocked) return;
+    let submitting = false;
+    const deadline = new Date(activeSession.startedAt).getTime() + (activeSession.durationMinutes || 45) * 60000;
+    const tick = () => {
+      const remaining = Math.max(0, Math.ceil((deadline - Date.now()) / 1000));
+      setSecondsLeft(remaining);
+      if (!remaining && !submitting) {
+        submitting = true;
+        submitRef.current().then(ok => { if (!ok) submitting = false; });
       }
     };
-
-    // Auto-attempt immediately upon mount
-    handleAutoFullscreen();
-
-    // Any click or keypress automatically converts into true browser fullscreen
-    window.addEventListener('click', handleAutoFullscreen, { capture: true });
-    window.addEventListener('keydown', handleAutoFullscreen, { capture: true });
-
-    return () => {
-      window.removeEventListener('click', handleAutoFullscreen, { capture: true });
-      window.removeEventListener('keydown', handleAutoFullscreen, { capture: true });
-    };
-  }, [isExamActive, requestFullscreen]);
+    tick();
+    const timer = setInterval(tick, 1000);
+    return () => clearInterval(timer);
+  }, [activeSession?.sessionId, activeSession?.isFinished, activeSession?.startedAt, activeSession?.durationMinutes, sessionReady, assessmentLocked]);
 
   if (!activeSession) return null;
 
@@ -324,6 +302,13 @@ export const ExamEnvironment = () => {
       </div>
     );
   }
+
+  if (assessmentLocked) return (
+    <div className="min-h-screen flex items-center justify-center bg-slate-50 p-8 text-center">
+      <div><h2 className="text-xl font-bold">Synchronizing assessment</h2>
+      <p>Your answers and security events are being saved. Answering resumes after the server confirms the session status.</p></div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-slate-100 flex flex-col font-sans select-none overflow-x-hidden">
@@ -746,8 +731,7 @@ export const ExamEnvironment = () => {
               <button
                 onClick={() => {
                   setConfirmSubmitOpen(false);
-                  markSubmitting();
-                  submitExam();
+                  submitOnce();
                 }}
                 className="flex-1 py-2 bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold rounded-xl shadow-md"
               >

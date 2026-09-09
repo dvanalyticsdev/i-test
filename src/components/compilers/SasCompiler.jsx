@@ -1,3 +1,4 @@
+import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
 import { Binary, Play, Terminal, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 
@@ -5,7 +6,7 @@ export const SasCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const [sasCode, setSasCode] = useState(starterCode || '');
   const [output, setOutput] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const { isSaved, saveStatus, save } = useCodeSave(onCodeChange, onSaveCode);
 
   useEffect(() => {
     if (starterCode !== undefined) {
@@ -15,19 +16,10 @@ export const SasCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
 
   const handleUpdate = (val) => {
     setSasCode(val);
-    setIsSaved(false);
-    if (onCodeChange) onCodeChange(val);
+    save(val);
   };
 
-  const handleSave = () => {
-    if (onSaveCode) {
-      onSaveCode(sasCode);
-    } else if (onCodeChange) {
-      onCodeChange(sasCode);
-    }
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
-  };
+  const handleSave = () => save(sasCode, true);
 
   const runSas = () => {
     setIsExecuting(true);
@@ -86,6 +78,8 @@ NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.`);
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
+          {saveStatus === 'saving' && <span role="status" className="text-xs text-sky-300">Saving…</span>}
+          {saveStatus === 'failed' && <span role="status" className="text-xs text-amber-300">Save pending — retrying connection</span>}
           {isSaved && (
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
               <Check className="w-3.5 h-3.5" /> Code Saved

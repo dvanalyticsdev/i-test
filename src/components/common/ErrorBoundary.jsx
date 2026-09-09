@@ -17,7 +17,6 @@ export class ErrorBoundary extends React.Component {
   }
 
   handleReset = () => {
-    localStorage.removeItem('i_test_active_session');
     window.location.reload();
   };
 

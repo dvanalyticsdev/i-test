@@ -6,7 +6,8 @@
     "start": "vite",
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "node --test server/test_proctoring_system.js src/utils/proctorEvents.test.js src/utils/examTransport.test.js src/hooks/useProctoring.test.js"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",
@@ -24,6 +25,7 @@
     "@vitejs/plugin-react": "^5.0.0",
     "autoprefixer": "^10.4.21",
     "postcss": "^8.5.3",
+    "react-test-renderer": "^19.1.0",
     "tailwindcss": "^4.3.3",
     "vite": "^8.2.2"
   }

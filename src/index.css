@@ -1,4 +1,6 @@
 @import "tailwindcss";
+@source not "../server";
+@source not "../.test-data";
 
 @layer base {
   body {

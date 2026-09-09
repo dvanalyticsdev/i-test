@@ -1,3 +1,4 @@
+import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
 import { BarChart3, Play, Sparkles, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
@@ -6,7 +7,7 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const [daxCode, setDaxCode] = useState(starterCode || '');
   const [chartData, setChartData] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const { isSaved, saveStatus, save } = useCodeSave(onCodeChange, onSaveCode);
 
   useEffect(() => {
     if (starterCode !== undefined) {
@@ -23,19 +24,10 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
 
   const handleUpdate = (val) => {
     setDaxCode(val);
-    setIsSaved(false);
-    if (onCodeChange) onCodeChange(val);
+    save(val);
   };
 
-  const handleSave = () => {
-    if (onSaveCode) {
-      onSaveCode(daxCode);
-    } else if (onCodeChange) {
-      onCodeChange(daxCode);
-    }
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
-  };
+  const handleSave = () => save(daxCode, true);
 
   const evaluateDax = () => {
     setIsEvaluating(true);
@@ -80,6 +72,8 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
+          {saveStatus === 'saving' && <span role="status" className="text-xs text-sky-300">Saving…</span>}
+          {saveStatus === 'failed' && <span role="status" className="text-xs text-amber-300">Save pending — retrying connection</span>}
           {isSaved && (
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
               <Check className="w-3.5 h-3.5" /> Code Saved

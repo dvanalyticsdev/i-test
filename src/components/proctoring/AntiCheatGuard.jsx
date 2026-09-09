@@ -30,6 +30,7 @@ export const AntiCheatGuard = ({
   const [showLogs, setShowLogs] = useState(false);
   const [activeAlert, setActiveAlert] = useState(null);
   const videoRef = useRef(null);
+  const displayedWarningRef = useRef(null);
 
   // Attach live video feed safely without resetting stream
   useEffect(() => {
@@ -44,7 +45,9 @@ export const AntiCheatGuard = ({
   useEffect(() => {
     if (proctorLogs && proctorLogs.length > 0) {
       const latestLog = proctorLogs[proctorLogs.length - 1];
-      if (latestLog.type === 'WARNING' || latestLog.type === 'CRITICAL') {
+      const id = latestLog.eventId || latestLog.timestamp + latestLog.message;
+      if ((latestLog.type === 'WARNING' || latestLog.type === 'CRITICAL') && displayedWarningRef.current !== id) {
+        displayedWarningRef.current = id;
         setActiveAlert(latestLog);
         
         // Auto-dismiss alert toast after 6 seconds
@@ -54,7 +57,7 @@ export const AntiCheatGuard = ({
         return () => clearTimeout(timer);
       }
     }
-  }, [proctorLogs]);
+  }, [proctorLogs?.at(-1)?.eventId, proctorLogs?.at(-1)?.timestamp, proctorLogs?.at(-1)?.message]);
 
   return (
     <>
@@ -100,7 +103,7 @@ export const AntiCheatGuard = ({
               To ensure assessment integrity and activate secure proctoring, this test must be conducted in full screen mode. Click below or anywhere on this screen to automatically convert to full screen.
             </p>
             <button
-              onClick={requestFullscreen}
+              onClick={(e) => { e.stopPropagation(); requestFullscreen(); }}
               className="w-full py-3.5 bg-sky-600 hover:bg-sky-700 text-white font-bold text-sm rounded-xl shadow-lg transition flex items-center justify-center gap-2 shadow-sky-100"
             >
               <Maximize2 className="w-4 h-4" />

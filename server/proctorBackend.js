@@ -4,7 +4,7 @@ import { fileURLToPath } from 'url';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DB_FILE = path.join(__dirname, 'proctor_db.json');
+const DB_FILE = process.env.PROCTOR_DB_FILE || path.join(__dirname, 'proctor_db.json');
 
 // Initialize DB file if not present
 function initDb() {
@@ -24,7 +24,7 @@ function readDb() {
     return JSON.parse(content);
   } catch (err) {
     console.error('[Proctor Backend] Error reading DB:', err);
-    return { sessions: {}, submissions: [] };
+    throw err;
   }
 }
 
@@ -35,6 +35,7 @@ function writeDb(data) {
     fs.renameSync(tempFile, DB_FILE);
   } catch (err) {
     console.error('[Proctor Backend] Error writing DB:', err);
+    throw err;
   }
 }
 
@@ -99,6 +100,9 @@ export function proctorApiMiddleware(req, res, next) {
 async function handleApiRoute(req, res) {
   const url = req.url || '';
   const method = req.method;
+  // Finish asynchronous input before reading state. All mutations below are
+  // synchronous read/modify/atomic-rename transactions in this server process.
+  const body = method === 'POST' ? await parseJsonBody(req) : {};
   const db = readDb();
 
   // 1. Health check
@@ -108,14 +112,14 @@ async function handleApiRoute(req, res) {
 
   // 2. Start new session: POST /api/sessions/start
   if (url === '/api/sessions/start' && method === 'POST') {
-    const body = await parseJsonBody(req);
     const { testConfig, studentUser, mcqs, compilers } = body;
 
     if (!testConfig || !studentUser) {
       return sendJson(res, 400, { success: false, error: 'testConfig and studentUser required' });
     }
 
-    const sessionId = `SESS-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    const sessionId = body.sessionId || `SESS-${Date.now()}-${Math.floor(100 + Math.random() * 900)}`;
+    if (db.sessions[sessionId]) return sendJson(res, 200, { success: true, session: db.sessions[sessionId] });
     const assessmentType = testConfig.assessmentType || 'compiler';
 
     const newSession = {
@@ -127,6 +131,7 @@ async function handleApiRoute(req, res) {
       studentName: studentUser.name,
       status: 'ACTIVE',
       warningCount: 0,
+      revision: 0,
       startedAt: new Date().toISOString(),
       durationMinutes: testConfig.durationMinutes || 45,
       timeRemainingSeconds: (testConfig.durationMinutes || 45) * 60,
@@ -180,6 +185,7 @@ async function handleApiRoute(req, res) {
 
       // Auto-submit if timer expired
       if (remaining === 0) {
+        session.revision = (session.revision || 0) + 1;
         session.isFinished = true;
         session.status = 'COMPLETED_TIMER_EXPIRED';
         finalizeSubmission(db, session, 'Timer Expired Auto-Submit');
@@ -205,18 +211,22 @@ async function handleApiRoute(req, res) {
       return sendJson(res, 200, {
         success: true,
         session,
-        isDisqualified: true,
-        warningCount: session.warningCount || 2,
+        isDisqualified: session.status === 'DISQUALIFIED',
+        warningCount: session.warningCount || 0,
+        submission: db.submissions.find(item => item.sessionId === sessionId),
         message: session.disqualifiedReason || 'Session already terminated'
       });
     }
 
-    const body = await parseJsonBody(req);
     const reason = body.reason || 'Restricted examination activity detected';
     const now = Date.now();
 
-    // Deduplication window: Prevent duplicate warnings within 2.5 seconds (from clustered blur/visibility/fullscreen events)
-    if (now - (session.lastViolationAt || 0) < 2500) {
+    // Stable IDs deduplicate retries without suppressing distinct actions.
+    if (!body.eventId || typeof body.eventId !== 'string' || body.eventId.length > 200) {
+      return sendJson(res, 400, { success: false, error: 'A stable eventId is required' });
+    }
+    session.processedViolationIds ||= [];
+    if (session.processedViolationIds.includes(body.eventId)) {
       console.log(`[Proctor Server] Deduplicated duplicate violation (${reason}) for session ${sessionId}`);
       return sendJson(res, 200, {
         success: true,
@@ -228,6 +238,8 @@ async function handleApiRoute(req, res) {
     }
 
     session.lastViolationAt = now;
+    session.revision = (session.revision || 0) + 1;
+    session.processedViolationIds.push(body.eventId);
     session.warningCount = (session.warningCount || 0) + 1;
     const currentCount = session.warningCount;
     const timestamp = new Date().toLocaleTimeString();
@@ -237,7 +249,7 @@ async function handleApiRoute(req, res) {
       const logType = 'CRITICAL';
       const message = `Violation 2/2: Second violation detected (${reason}). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).`;
 
-      session.proctorLogs.push({ timestamp, type: logType, message, warningNum: currentCount });
+      session.proctorLogs.push({ eventId: body.eventId, timestamp, type: logType, message, warningNum: currentCount });
       session.status = 'DISQUALIFIED';
       session.isFinished = true;
       session.isDisqualified = true;
@@ -274,7 +286,7 @@ async function handleApiRoute(req, res) {
       // Strike 1: Warning
       const logType = 'WARNING';
       const message = `Warning 1/2: ${reason}`;
-      session.proctorLogs.push({ timestamp, type: logType, message, warningNum: currentCount });
+      session.proctorLogs.push({ eventId: body.eventId, timestamp, type: logType, message, warningNum: currentCount });
       writeDb(db);
 
       return sendJson(res, 200, {
@@ -294,15 +306,15 @@ async function handleApiRoute(req, res) {
     const session = db.sessions[sessionId];
 
     if (!session || session.isFinished) {
-      return sendJson(res, 400, { success: false, error: 'Session not active' });
+      return sendJson(res, 400, { success: false, error: 'Session not active', session });
     }
 
-    const body = await parseJsonBody(req);
     const { questionId, optionIndex } = body;
     session.userAnswers[questionId] = optionIndex;
+    session.revision = (session.revision || 0) + 1;
     writeDb(db);
 
-    return sendJson(res, 200, { success: true, userAnswers: session.userAnswers });
+    return sendJson(res, 200, { success: true, userAnswers: session.userAnswers, revision: session.revision });
   }
 
   // 6. Save compiler code: POST /api/sessions/:sessionId/compiler
@@ -312,15 +324,15 @@ async function handleApiRoute(req, res) {
     const session = db.sessions[sessionId];
 
     if (!session || session.isFinished) {
-      return sendJson(res, 400, { success: false, error: 'Session not active' });
+      return sendJson(res, 400, { success: false, error: 'Session not active', session });
     }
 
-    const body = await parseJsonBody(req);
     const { compilerId, code } = body;
     session.compilerCode[compilerId] = code;
+    session.revision = (session.revision || 0) + 1;
     writeDb(db);
 
-    return sendJson(res, 200, { success: true });
+    return sendJson(res, 200, { success: true, revision: session.revision });
   }
 
   // 7. Submit test: POST /api/sessions/:sessionId/submit
@@ -348,6 +360,7 @@ async function handleApiRoute(req, res) {
 
     session.isFinished = true;
     session.status = 'SUBMITTED';
+    session.revision = (session.revision || 0) + 1;
     const submission = finalizeSubmission(db, session, 'Candidate Manual Submission');
     writeDb(db);
 

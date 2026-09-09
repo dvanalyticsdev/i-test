@@ -18,6 +18,7 @@ export default defineConfig({
     }
   ],
   server: {
+    watch: { ignored: ['**/server/proctor_db.json', '**/server/proctor_db.json.tmp', '**/.test-data/**'] },
     port: 3000,
     open: true,
   },

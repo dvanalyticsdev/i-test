@@ -1,3 +1,4 @@
+import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
 import { FileSpreadsheet, Sparkles, Play, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 
@@ -5,7 +6,7 @@ export const ExcelAiCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const [formula, setFormula] = useState(starterCode || '=XLOOKUP(A2, Products[ID], Products[Price]) * B2');
   const [evalResult, setEvalResult] = useState('$1,450.00');
   const [isEvaluating, setIsEvaluating] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+  const { isSaved, saveStatus, save } = useCodeSave(onCodeChange, onSaveCode);
 
   useEffect(() => {
     if (starterCode !== undefined) {
@@ -23,19 +24,10 @@ export const ExcelAiCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
 
   const handleFormulaUpdate = (val) => {
     setFormula(val);
-    setIsSaved(false);
-    if (onCodeChange) onCodeChange(val);
+    save(val);
   };
 
-  const handleSave = () => {
-    if (onSaveCode) {
-      onSaveCode(formula);
-    } else if (onCodeChange) {
-      onCodeChange(formula);
-    }
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 2500);
-  };
+  const handleSave = () => save(formula, true);
 
   const evaluateFormula = () => {
     setIsEvaluating(true);
@@ -102,6 +94,8 @@ export const ExcelAiCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
             <RotateCcw className="w-3.5 h-3.5" />
             <span>Reset</span>
           </button>
+          {saveStatus === 'saving' && <span role="status" className="text-xs text-sky-300">Saving…</span>}
+          {saveStatus === 'failed' && <span role="status" className="text-xs text-amber-300">Save pending — retrying connection</span>}
           {isSaved && (
             <span className="flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-950/60 border border-emerald-800 px-2 py-0.5 rounded">
               <Check className="w-3.5 h-3.5" /> Code Saved
