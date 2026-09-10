@@ -8821,9 +8821,650 @@
       ],
       "isDisqualified": true,
       "submissionReason": "AUTO_SUBMITTED_CHEATING"
+    },
+    "SESS-d89bc11f-a66f-4011-bb95-b7cfaf33f289": {
+      "sessionId": "SESS-d89bc11f-a66f-4011-bb95-b7cfaf33f289",
+      "testId": "TEST-MULTI-04",
+      "testTitle": "Full Stack Data & Analytics Skills MCQ Assessment (9 Domains)",
+      "assessmentType": "mcq",
+      "studentId": "STU-99214",
+      "studentName": "Alex Mercer",
+      "status": "DISQUALIFIED",
+      "warningCount": 2,
+      "revision": 2,
+      "startedAt": "2026-09-10T12:06:39.285Z",
+      "durationMinutes": 60,
+      "timeRemainingSeconds": 3600,
+      "proctorLogs": [
+        {
+          "timestamp": "5:36:39 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (MCQ). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "0b63bb14-417a-44ad-846d-b44d52e3a3a2",
+          "timestamp": "5:36:42 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        },
+        {
+          "eventId": "d4db9bc3-01b2-47a8-870c-7689d93109dc",
+          "timestamp": "5:37:04 pm",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {},
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "mcq",
+      "mcqs": [
+        {
+          "id": "sql-8",
+          "domain": "sql",
+          "type": "mcq",
+          "question": "Which NULL handling function returns the first non-null argument from a list of expressions?",
+          "options": [
+            "ISNULL()",
+            "COALESCE()",
+            "NULLIF()",
+            "NVL2()"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "mlops-1",
+          "domain": "mlops",
+          "type": "mcq",
+          "question": "Which platform is standard for tracking machine learning experiments, hyperparameter runs, and artifact registries?",
+          "options": [
+            "MLflow / Weights & Biases",
+            "Jenkins",
+            "Kubernetes",
+            "Docker Compose"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-11",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "Which DAX function evaluates a table expression row-by-row in an iterated context (X-function)?",
+          "options": [
+            "SUMX()",
+            "SUM()",
+            "TOTAL()",
+            "COUNT()"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "ex-11",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "How do Python formulas in Excel (e.g. =PY) execute code inside Excel workbooks?",
+          "options": [
+            "Locally on local GPU",
+            "Inside a secure Microsoft Cloud container sandboxed with Anaconda distribution",
+            "Directly inside Windows command prompt",
+            "Via VBA translation"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-10",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "Which Excel tool performs Goal Seek across multiple variables simultaneously with user-defined constraints?",
+          "options": [
+            "Data Table",
+            "Solver Add-in",
+            "PivotTable Manager",
+            "Power Query"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "pb-5",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "In Power Query Editor, what M language function is generated when transforming data steps?",
+          "options": [
+            "DAX Query",
+            "M Code (Power Query Formula Language)",
+            "VBA Script",
+            "TSQL"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-1",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "Which Excel AI function automatically extracts entities and classifies text without manual regex formulas?",
+          "options": [
+            "=LABELS.EXTRACT()",
+            "=AI.CLASSIFY()",
+            "=TEXT.EXTRACT()",
+            "=VLOOKUP.AI()"
+          ],
+          "correctAnswer": 1,
+          "explanation": "Modern Excel AI tools utilize AI.CLASSIFY to evaluate unstructured text against user-defined categories."
+        },
+        {
+          "id": "ex-6",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "What does the Excel formula =LET(x, 10, y, 20, x * y) return?",
+          "options": [
+            "30",
+            "200",
+            "1020",
+            "Error"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-2",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "What is the default reference type created when using the \"$\" sign before both column letter and row number (e.g. $A$1)?",
+          "options": [
+            "Relative Reference",
+            "Absolute Reference",
+            "Mixed Reference",
+            "Dynamic Range"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "pb-3",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "Which Power BI storage mode loads data into the VertiPaq in-memory engine for fastest analytical query performance?",
+          "options": [
+            "DirectQuery",
+            "Import Mode",
+            "Live Connection",
+            "Dual Mode"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "pb-7",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "What Power BI feature enables row-level security (RLS) to restrict data access for specific users based on roles?",
+          "options": [
+            "Security Roles + DAX filters",
+            "Sensitivity Labels",
+            "Gateway Policy",
+            "Power Query Rules"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "py-1",
+          "domain": "python",
+          "type": "mcq",
+          "question": "What is the time complexity of looking up a key in a standard Python dictionary on average?",
+          "options": [
+            "O(1)",
+            "O(n)",
+            "O(log n)",
+            "O(n^2)"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "sas-1",
+          "domain": "sas",
+          "type": "mcq",
+          "question": "Which SAS procedure produces descriptive summary statistics (N, Mean, Std Dev, Min, Max) for continuous variables?",
+          "options": [
+            "PROC MEANS",
+            "PROC FREQ",
+            "PROC SUMMARY",
+            "PROC REG"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "sql-1",
+          "domain": "sql",
+          "type": "mcq",
+          "question": "Which SQL clause is used to filter aggregated grouped data after a GROUP BY statement?",
+          "options": [
+            "WHERE",
+            "HAVING",
+            "QUALIFY",
+            "ORDER BY"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-9",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "What error code is produced when a formula attempts to divide a numeric value by zero or an empty cell?",
+          "options": [
+            "#N/A",
+            "#DIV/0!",
+            "#VALUE!",
+            "#REF!"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-3",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "In Excel dynamic arrays, which formula sorts a range of values based on values in a specified column?",
+          "options": [
+            "=SORT()",
+            "=ORDER.BY()",
+            "=ARR.SORT()",
+            "=VLOOKUP.SORT()"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-10",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "What component is required to establish secure live automated refreshes between Power BI Cloud Service and an on-premises SQL Database?",
+          "options": [
+            "On-premises Data Gateway",
+            "Power BI Desktop App",
+            "Active Directory Connector",
+            "ODBC Driver"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "ex-7",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "Which Excel feature allows user-defined reusable custom functions written in formula syntax without VBA?",
+          "options": [
+            "LAMBDA",
+            "MACRO",
+            "PIVOT.FUNC",
+            "SOLVER"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "ex-4",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "Which lookup function in Excel replaces both VLOOKUP and HLOOKUP, allowing left-side lookups without column index counting?",
+          "options": [
+            "XLOOKUP",
+            "INDEX/MATCH",
+            "FILTER",
+            "LOOKUP.EXACT"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-2",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "What is the default relationship direction recommended in Power BI Star Schema data modeling?",
+          "options": [
+            "Both Directions (Bi-directional)",
+            "Single Direction (One-to-Many)",
+            "Many-to-Many",
+            "None"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "sql-6",
+          "domain": "sql",
+          "type": "mcq",
+          "question": "Which SQL command is used to permanently remove all rows from a table without logging individual row deletions?",
+          "options": [
+            "DELETE",
+            "TRUNCATE",
+            "DROP",
+            "REMOVE"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ex-12",
+          "domain": "excel_ai",
+          "type": "mcq",
+          "question": "Which dynamic array formula flattens a multi-dimensional row/column array into a single column vector?",
+          "options": [
+            "=TOCOL()",
+            "=TOROW()",
+            "=UNPIVOT()",
+            "=FLATTEN()"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-6",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "Which time-intelligence DAX function computes year-to-date values for a given measure?",
+          "options": [
+            "TOTALYTD()",
+            "DATESYTD()",
+            "SAMEPERIODLASTYEAR()",
+            "DATEADD()"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "sql-10",
+          "domain": "sql",
+          "type": "mcq",
+          "question": "Which index type physical orders the data rows in the table on disk based on key values?",
+          "options": [
+            "Non-Clustered Index",
+            "Clustered Index",
+            "Bitmap Index",
+            "Hash Index"
+          ],
+          "correctAnswer": 1
+        },
+        {
+          "id": "ml-1",
+          "domain": "ml",
+          "type": "mcq",
+          "question": "Which loss function is commonly used for binary classification training in logistic regression?",
+          "options": [
+            "Binary Cross-Entropy (Log Loss)",
+            "Mean Squared Error (MSE)",
+            "Mean Absolute Error (MAE)",
+            "Hinge Loss"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "py-2",
+          "domain": "python",
+          "type": "mcq",
+          "question": "Which built-in Python method returns an iterator of tuples containing index and element pairs?",
+          "options": [
+            "enumerate()",
+            "zip()",
+            "map()",
+            "filter()"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-12",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "What is the maximum file size for a single PBIX report dataset published to a standard shared Power BI workspace without Premium capacity?",
+          "options": [
+            "1 GB",
+            "10 GB",
+            "500 MB",
+            "100 MB"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "sql-4",
+          "domain": "sql",
+          "type": "mcq",
+          "question": "Which JOIN type returns all records when there is a match in either left or right table, filling non-matching sides with NULL?",
+          "options": [
+            "INNER JOIN",
+            "LEFT JOIN",
+            "FULL OUTER JOIN",
+            "CROSS JOIN"
+          ],
+          "correctAnswer": 2
+        },
+        {
+          "id": "gen-1",
+          "domain": "gen_ai",
+          "type": "mcq",
+          "question": "What key mechanism introduced in the \"Attention Is All You Need\" paper allowed Transformers to process sequences in parallel?",
+          "options": [
+            "Self-Attention Mechanism",
+            "Recurrent Backpropagation",
+            "Convolutional Pooling",
+            "LSTM Cells"
+          ],
+          "correctAnswer": 0
+        },
+        {
+          "id": "pb-9",
+          "domain": "power_bi",
+          "type": "mcq",
+          "question": "Which visual allows navigating through hierarchical drill-down paths by clicking data nodes?",
+          "options": [
+            "Decomposition Tree",
+            "KPI Visual",
+            "Matrix Visual",
+            "Scatter Plot"
+          ],
+          "correctAnswer": 0
+        }
+      ],
+      "compilers": [],
+      "isFinished": true,
+      "disqualifiedReason": "Test Automatically Terminated: You triggered 2 anti-cheating violations (Exited forced fullscreen examination mode). As per exam policy, your assessment has been automatically submitted and recorded as DISQUALIFIED (CHEATING DETECTED). Further answering is disabled.",
+      "lastViolationAt": 1789042024350,
+      "processedViolationIds": [
+        "0b63bb14-417a-44ad-846d-b44d52e3a3a2",
+        "d4db9bc3-01b2-47a8-870c-7689d93109dc"
+      ],
+      "isDisqualified": true,
+      "submissionReason": "AUTO_SUBMITTED_CHEATING"
+    },
+    "SESS-b2600409-dcde-4d7c-a263-3b1f9e31aba3": {
+      "sessionId": "SESS-b2600409-dcde-4d7c-a263-3b1f9e31aba3",
+      "testId": "TEST-COMP-01",
+      "testTitle": "Hands-On Python & SQL Compiler Challenge (No MCQs)",
+      "assessmentType": "compiler",
+      "studentId": "STU-99214",
+      "studentName": "Alex Mercer",
+      "status": "DISQUALIFIED",
+      "warningCount": 2,
+      "revision": 2,
+      "startedAt": "2026-09-10T12:07:12.134Z",
+      "durationMinutes": 45,
+      "timeRemainingSeconds": 2700,
+      "proctorLogs": [
+        {
+          "timestamp": "5:37:12 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "74c1f2e6-318b-412e-954a-d92f7cd1f0cb",
+          "timestamp": "5:37:21 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Window focus lost / switched away from assessment screen",
+          "warningNum": 1
+        },
+        {
+          "eventId": "6d1e0461-c91a-47d4-8dec-94f228438f82",
+          "timestamp": "5:37:38 pm",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {
+        "coding-py-1": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+        "coding-sql-1": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+        "coding-pb-1": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+        "coding-sas-1": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+        "coding-excel-1": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2"
+      },
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "compiler",
+      "mcqs": [],
+      "compilers": [
+        {
+          "id": "coding-py-1",
+          "domain": "python",
+          "type": "compiler",
+          "title": "Python Coding Task: Data Cleaning & Aggregation",
+          "description": "Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{\"item\": \"laptop\", \"price\": 1000}, ...]` and returns a dictionary with total revenue per item.",
+          "starterCode": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+          "testCases": [
+            {
+              "input": "Laptop: 2400, Mouse: 25, Keyboard: 75",
+              "expected": "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}"
+            }
+          ]
+        },
+        {
+          "id": "coding-sql-1",
+          "domain": "sql",
+          "type": "compiler",
+          "title": "SQL Challenge: High-Earning Employee Department Ranking",
+          "description": "Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.",
+          "starterCode": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+          "testCases": [
+            {
+              "input": "Query employees table where salary >= 75000",
+              "expected": "Ranked list grouped by department"
+            }
+          ]
+        },
+        {
+          "id": "coding-pb-1",
+          "domain": "power_bi",
+          "type": "compiler",
+          "title": "Power BI Challenge: DAX Dynamic YoY Revenue Measure",
+          "description": "Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.",
+          "starterCode": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+          "testCases": [
+            {
+              "input": "DAX measure evaluation on Sales table",
+              "expected": "YoY Growth % measure compiled"
+            }
+          ]
+        },
+        {
+          "id": "coding-sas-1",
+          "domain": "sas",
+          "type": "compiler",
+          "title": "SAS Challenge: Summary Statistics & PROC MEANS",
+          "description": "Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.",
+          "starterCode": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+          "testCases": [
+            {
+              "input": "EXECUTE PROC MEANS ON sashelp.shoes",
+              "expected": "Summary Table by Region generated"
+            }
+          ]
+        },
+        {
+          "id": "coding-excel-1",
+          "domain": "excel_ai",
+          "type": "compiler",
+          "title": "Excel AI Lab: Dynamic XLOOKUP & AI Classification",
+          "description": "Build a dynamic formula table with XLOOKUP and conditional AI text classification.",
+          "starterCode": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+          "testCases": [
+            {
+              "input": "Product Lookup ID: P-102",
+              "expected": "$1,450.00"
+            }
+          ]
+        }
+      ],
+      "isFinished": true,
+      "disqualifiedReason": "Test Automatically Terminated: You triggered 2 anti-cheating violations (Exited forced fullscreen examination mode). As per exam policy, your assessment has been automatically submitted and recorded as DISQUALIFIED (CHEATING DETECTED). Further answering is disabled.",
+      "lastViolationAt": 1789042058981,
+      "processedViolationIds": [
+        "74c1f2e6-318b-412e-954a-d92f7cd1f0cb",
+        "6d1e0461-c91a-47d4-8dec-94f228438f82"
+      ],
+      "isDisqualified": true,
+      "submissionReason": "AUTO_SUBMITTED_CHEATING"
     }
   },
   "submissions": [
+    {
+      "id": "SUB-9354",
+      "sessionId": "SESS-b2600409-dcde-4d7c-a263-3b1f9e31aba3",
+      "studentId": "STU-99214",
+      "studentName": "Alex Mercer",
+      "testId": "TEST-COMP-01",
+      "testTitle": "Hands-On Python & SQL Compiler Challenge (No MCQs)",
+      "submittedAt": "10/9/2026, 5:37:38 pm",
+      "score": "0 (Disqualified - 2 Violations)",
+      "compilerStatus": "Terminated on Second Strike",
+      "cheatingStatus": "DISQUALIFIED (CHEATING DETECTED - 2 STRIKES)",
+      "proctorLogs": [
+        {
+          "timestamp": "5:37:12 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "74c1f2e6-318b-412e-954a-d92f7cd1f0cb",
+          "timestamp": "5:37:21 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Window focus lost / switched away from assessment screen",
+          "warningNum": 1
+        },
+        {
+          "eventId": "6d1e0461-c91a-47d4-8dec-94f228438f82",
+          "timestamp": "5:37:38 pm",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "codeSubmitted": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n\n\n---\n\nSELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;\n\n---\n\n// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)\n\n---\n\n/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;\n\n---\n\n=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+      "status": "DISQUALIFIED (CHEATING DETECTED)"
+    },
+    {
+      "id": "SUB-8414",
+      "sessionId": "SESS-d89bc11f-a66f-4011-bb95-b7cfaf33f289",
+      "studentId": "STU-99214",
+      "studentName": "Alex Mercer",
+      "testId": "TEST-MULTI-04",
+      "testTitle": "Full Stack Data & Analytics Skills MCQ Assessment (9 Domains)",
+      "submittedAt": "10/9/2026, 5:37:04 pm",
+      "score": "0 (Disqualified - 2 Violations)",
+      "compilerStatus": "Terminated on Second Strike",
+      "cheatingStatus": "DISQUALIFIED (CHEATING DETECTED - 2 STRIKES)",
+      "proctorLogs": [
+        {
+          "timestamp": "5:36:39 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (MCQ). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "0b63bb14-417a-44ad-846d-b44d52e3a3a2",
+          "timestamp": "5:36:42 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        },
+        {
+          "eventId": "d4db9bc3-01b2-47a8-870c-7689d93109dc",
+          "timestamp": "5:37:04 pm",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "codeSubmitted": "",
+      "status": "DISQUALIFIED (CHEATING DETECTED)"
+    },
     {
       "id": "SUB-2837",
       "sessionId": "SESS-dda666d3-66d7-46a0-8fa3-1c0e94d2e500",

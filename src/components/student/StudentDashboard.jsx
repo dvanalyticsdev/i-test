@@ -22,6 +22,76 @@ export const StudentDashboard = () => {
   // Filter completed tests for this student
   const studentSubmissions = submissions.filter(s => s.studentId === user?.lmsId || s.studentId === user?.id);
 
+  // 8 Target Test Categories matching the reference wireframe
+  const TEST_CATEGORIES = [
+    {
+      id: 'excel',
+      title: 'EXCEL TEST',
+      domain: 'excel_ai',
+      matcher: (t) => t.domain === 'excel_ai' || t.title.toLowerCase().includes('excel')
+    },
+    {
+      id: 'sql',
+      title: 'SQL TEST',
+      domain: 'sql',
+      matcher: (t) => t.domain === 'sql' || t.title.toLowerCase().includes('sql')
+    },
+    {
+      id: 'python',
+      title: 'PYTHON TEST',
+      domain: 'python',
+      matcher: (t) => t.domain === 'python' || t.title.toLowerCase().includes('python')
+    },
+    {
+      id: 'sas',
+      title: 'SAS TEST',
+      domain: 'sas',
+      matcher: (t) => t.domain === 'sas' || t.title.toLowerCase().includes('sas')
+    },
+    {
+      id: 'ml',
+      title: 'ML TEST',
+      domain: 'ml',
+      matcher: (t) => t.domain === 'ml' || t.title.toLowerCase().includes('machine learning') || (t.title.toLowerCase().includes(' ml ') && !t.title.toLowerCase().includes('html'))
+    },
+    {
+      id: 'gen_ai',
+      title: 'GEN AI TEST',
+      domain: 'gen_ai',
+      matcher: (t) => t.domain === 'gen_ai' || t.title.toLowerCase().includes('gen ai') || t.title.toLowerCase().includes('generative ai')
+    },
+    {
+      id: 'mlops',
+      title: 'MLOPS TEST',
+      domain: 'mlops',
+      matcher: (t) => (t.domain === 'mlops' && !t.title.toLowerCase().includes('llmops')) || (t.title.toLowerCase().includes('mlops') && !t.title.toLowerCase().includes('llmops'))
+    },
+    {
+      id: 'llmops',
+      title: 'LLMOPS TEST',
+      domain: 'llmops',
+      matcher: (t) => t.domain === 'llmops' || t.title.toLowerCase().includes('llmops')
+    }
+  ];
+
+  const handleLaunchExam = (test) => {
+    if (!test) return;
+    try {
+      const docEl = document.documentElement;
+      const requestFull = 
+        docEl.requestFullscreen ||
+        docEl.webkitRequestFullscreen ||
+        docEl.mozRequestFullScreen ||
+        docEl.msRequestFullscreen;
+      if (requestFull) {
+        requestFull.call(docEl).catch(() => {});
+      }
+    } catch (e) {
+      // Handled safely
+    }
+    startExamSession(test, user);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans select-none">
       {/* Header */}
@@ -76,9 +146,9 @@ export const StudentDashboard = () => {
           </div>
         </div>
 
-        {/* Assigned Assessments */}
+        {/* Assigned Assessments - 8 Test Cards Grid */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-4">
             <div>
               <h2 className="text-base font-extrabold text-slate-900">Assigned Assessments</h2>
               <span className="text-xs text-slate-500 font-medium">Filtered for {studentCourse} | Batch {studentBatch}</span>
@@ -88,73 +158,58 @@ export const StudentDashboard = () => {
             </span>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {assignedTests.map((test) => (
-              <div
-                key={test.id}
-                className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs hover:shadow-md transition flex flex-col justify-between"
-              >
-                <div>
-                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
-                    <span className="bg-sky-100 text-sky-800 text-[11px] font-bold px-2.5 py-0.5 rounded-full uppercase">
-                      {test.domain.replace('_', ' ')}
-                    </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {TEST_CATEGORIES.map((cat) => {
+              const activeTest = assignedTests.find((t) => cat.matcher(t));
+              const isActive = Boolean(activeTest);
 
-                    {/* Assessment Type Badge */}
-                    <span className="text-[10px] font-extrabold px-2.5 py-0.5 rounded-full uppercase bg-slate-100 text-slate-800 border border-slate-200">
-                      {test.assessmentType === 'compiler' ? 'Compiler Assessment Only (Hands-On Code)' : 'MCQ Assessment'}
+              return (
+                <div key={cat.id} className="flex flex-col">
+                  {/* Card Rectangle - with subtle light blue shade */}
+                  <div
+                    onClick={() => isActive && handleLaunchExam(activeTest)}
+                    className={`h-40 sm:h-44 rounded-2xl flex flex-col items-center justify-center p-4 text-center select-none transition-all duration-200 ${
+                      isActive
+                        ? 'bg-gradient-to-b from-sky-50 via-sky-50/50 to-white border border-sky-200 hover:border-sky-400 hover:shadow-md hover:scale-[1.02] shadow-xs cursor-pointer'
+                        : 'bg-gradient-to-b from-sky-50/30 to-slate-50/50 border border-slate-200 opacity-60 cursor-default'
+                    }`}
+                  >
+                    <span
+                      className={`text-base sm:text-lg tracking-wider uppercase leading-snug ${
+                        isActive ? 'text-slate-900 font-bold' : 'text-slate-400 font-semibold'
+                      }`}
+                    >
+                      {cat.title}
                     </span>
                   </div>
 
-                  <h3 className="text-base font-bold text-slate-900 mb-2 leading-snug">
-                    {test.title}
-                  </h3>
-
-                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200 text-xs space-y-1 mb-4 text-slate-600 font-medium">
-                    <div className="flex justify-between">
-                      <span>Target Course:</span>
-                      <strong className="text-slate-800">{test.course}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Assigned Batches:</span>
-                      <strong className="text-sky-700 font-mono">{test.targetBatches?.join(', ')}</strong>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Duration & Format:</span>
-                      <strong className="text-slate-800">
-                        {test.durationMinutes} Mins • {test.assessmentType === 'compiler' ? '5 Compiler Labs' : `Serve ${test.servedMcqCount} MCQs`}
-                      </strong>
+                  {/* Dual Action / Status Buttons */}
+                  <div className="flex items-center gap-2 mt-2 w-full">
+                    <button
+                      type="button"
+                      disabled={!isActive}
+                      onClick={() => isActive && handleLaunchExam(activeTest)}
+                      className={`flex-1 py-1.5 px-2 text-center text-xs uppercase font-bold tracking-wider rounded-lg transition-colors select-none ${
+                        isActive
+                          ? 'bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 shadow-xs cursor-pointer'
+                          : 'bg-slate-100 text-slate-400/50 border border-slate-200 cursor-not-allowed'
+                      }`}
+                    >
+                      ACTIVE
+                    </button>
+                    <div
+                      className={`flex-1 py-1.5 px-2 text-center text-xs uppercase tracking-wider rounded-lg select-none ${
+                        isActive
+                          ? 'bg-slate-100 text-slate-400 border border-slate-200 font-medium'
+                          : 'bg-slate-200 text-slate-600 border border-slate-300 font-semibold'
+                      }`}
+                    >
+                      IN-ACTIVE
                     </div>
                   </div>
                 </div>
-
-                <button
-                  onClick={() => {
-                    // Immediately transition interface into true browser fullscreen mode using Fullscreen API on user gesture
-                    try {
-                      const docEl = document.documentElement;
-                      const requestFull = 
-                        docEl.requestFullscreen ||
-                        docEl.webkitRequestFullscreen ||
-                        docEl.mozRequestFullScreen ||
-                        docEl.msRequestFullscreen;
-                      if (requestFull) {
-                        requestFull.call(docEl).catch(() => {});
-                      }
-                    } catch (e) {
-                      // Handled safely
-                    }
-                    startExamSession(test, user);
-                  }}
-                  className="w-full py-2.5 text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2 bg-sky-600 hover:bg-sky-700 shadow-sky-100"
-                >
-                  <Play className="w-3.5 h-3.5 fill-current" />
-                  <span>
-                    {test.assessmentType === 'compiler' ? 'Launch Live Compiler Test Session' : 'Start Secured Test Session'}
-                  </span>
-                </button>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
