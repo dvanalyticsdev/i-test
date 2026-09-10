@@ -1,16 +1,16 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { DOMAINS, COURSES, BATCHES } from '../../data/mockQuestionBank';
-import { User, Lock, KeyRound, Sparkles, GraduationCap, Users } from 'lucide-react';
+import { KeyRound, User } from 'lucide-react';
 import logo from '../../assets/DV-Logo.png';
 
 export const LoginView = () => {
   const { loginStudent, loginAdmin } = useAuth();
-  const [role, setRole] = useState('student');
+  const [isAdminMode, setIsAdminMode] = useState(false);
 
   // Student Form states
-  const [lmsId, setLmsId] = useState('STU-99214');
-  const [studentName, setStudentName] = useState('Alex Mercer');
+  const [lmsId, setLmsId] = useState('');
+  const [studentName, setStudentName] = useState('');
+  const [mobileNo, setMobileNo] = useState('');
   const [studentCourse, setStudentCourse] = useState('AIML');
   const [studentBatch, setStudentBatch] = useState('202601');
 
@@ -26,217 +26,230 @@ export const LoginView = () => {
       setErrorMessage('Please enter your LMS ID.');
       return;
     }
-    loginStudent(lmsId, studentName, studentCourse, studentBatch);
+    if (!studentName.trim()) {
+      setErrorMessage('Please enter your Name.');
+      return;
+    }
+    setErrorMessage('');
+    loginStudent(lmsId.trim(), studentName.trim(), studentCourse, studentBatch, mobileNo.trim());
   };
 
   const handleAdminSubmit = (e) => {
     e.preventDefault();
-    const res = loginAdmin(adminEmail, adminPassword);
+    if (!adminEmail.trim() || !adminPassword.trim()) {
+      setErrorMessage('Please enter both admin email and password.');
+      return;
+    }
+    setErrorMessage('');
+    const res = loginAdmin(adminEmail.trim(), adminPassword.trim());
     if (!res.success) {
       setErrorMessage(res.message);
     }
   };
 
+  const fillDemo = (id, name, course, batch, phone) => {
+    setLmsId(id);
+    setStudentName(name);
+    setStudentCourse(course);
+    setStudentBatch(batch);
+    setMobileNo(phone);
+    setErrorMessage('');
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-between font-sans select-none">
-      {/* Top Bar */}
-      <header className="w-full bg-white border-b border-slate-200 px-6 sm:px-8 py-3.5 flex items-center shadow-xs sticky top-0 z-20">
-        <div className="flex items-center gap-3.5">
-          <img src={logo} alt="DV Analytics" className="h-8 sm:h-9 object-contain" />
-          <div className="h-5 w-px bg-slate-200"></div>
-          <span className="text-xs sm:text-sm font-bold text-slate-800 uppercase tracking-wider">
-            Secure Assessment & Compiler Testing Portal
+    <div className="min-h-screen bg-white flex flex-col justify-between font-sans select-none antialiased">
+      {/* Top Utility Bar with Logo & Admin Switcher */}
+      <header className="w-full px-6 py-3.5 flex justify-between items-center border-b border-[#e2e8f0] bg-white sticky top-0 z-20">
+        <div className="flex items-center gap-3">
+          <img src={logo} alt="DV Analytics" className="h-9 sm:h-10 object-contain" />
+          <div className="h-4 w-px bg-slate-200 hidden sm:block"></div>
+          <span className="text-xs font-bold text-[#051f40] uppercase tracking-wider hidden sm:inline-block">
+            Online Examination Portal
           </span>
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            setIsAdminMode(!isAdminMode);
+            setErrorMessage('');
+          }}
+          className="text-[#051f40] hover:text-[#ef5323] hover:border-[#ef5323] font-bold flex items-center gap-1.5 transition cursor-pointer px-3 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-xs"
+        >
+          {isAdminMode ? (
+            <>
+              <User className="w-3.5 h-3.5" />
+              <span>Student Portal</span>
+            </>
+          ) : (
+            <>
+              <KeyRound className="w-3.5 h-3.5" />
+              <span>Admin Login</span>
+            </>
+          )}
+        </button>
       </header>
 
-      {/* Hero & Login Section */}
-      <main className="flex-1 w-full max-w-4xl mx-auto px-6 py-8 sm:py-10 flex flex-col items-center justify-center gap-8">
-        {/* Upper Heading Section */}
-        <div className="text-center space-y-3 max-w-2xl">
-          <div className="inline-flex items-center gap-2 bg-sky-50 border border-sky-200 px-3.5 py-1.5 rounded-full text-xs font-bold text-sky-800 shadow-2xs">
-            <Sparkles className="w-4 h-4 text-sky-600" />
-            <span>Multi-Domain MCQ & Live Compiler Platform</span>
-          </div>
-
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold text-slate-900 leading-tight">
-            Secure Assessment Platform with Live Coding & Course/Batch Scheduling
+      {/* Main Centered Authentication Section */}
+      <main className="flex-1 w-full max-w-3xl mx-auto px-4 sm:px-6 flex flex-col items-center justify-center -mt-6 sm:-mt-10">
+        {/* Brand Header */}
+        <div className="text-center mb-8 sm:mb-10 select-none">
+          <h1 className="text-3xl sm:text-4xl md:text-[2.25rem] font-bold text-[#ef5323] tracking-wide uppercase">
+            DV ELITE TEST
           </h1>
         </div>
 
-        {/* Authentication Card Below Heading */}
-        <div className="w-full max-w-lg">
-          <div className="bg-white border border-slate-200 rounded-3xl p-6 sm:p-8 shadow-xl shadow-slate-200/50">
-            {/* Role Tab Selector */}
-            <div className="bg-slate-100 p-1 rounded-xl flex gap-1 mb-6 text-xs font-bold">
-              <button
-                onClick={() => { setRole('student'); setErrorMessage(''); }}
-                className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
-                  role === 'student' ? 'bg-white text-sky-800 shadow-xs border border-slate-200 font-extrabold' : 'text-slate-500'
-                }`}
-              >
-                <User className="w-3.5 h-3.5" />
-                <span>Student LMS Portal</span>
-              </button>
+        {/* Error Banner if any */}
+        {errorMessage && (
+          <div className="w-full max-w-xl mb-5 p-3 bg-red-50 border border-red-200 text-red-700 text-xs sm:text-sm font-medium text-center rounded-xl animate-in fade-in">
+            {errorMessage}
+          </div>
+        )}
 
-              <button
-                onClick={() => { setRole('admin'); setErrorMessage(''); }}
-                className={`flex-1 py-2 rounded-lg transition flex items-center justify-center gap-1.5 ${
-                  role === 'admin' ? 'bg-white text-sky-800 shadow-xs border border-slate-200 font-extrabold' : 'text-slate-500'
-                }`}
-              >
-                <KeyRound className="w-3.5 h-3.5" />
-                <span>Admin Login</span>
-              </button>
+        {/* Student Form (Structured 3-Row Layout with Simple Clean Styling) */}
+        {!isAdminMode ? (
+          <form onSubmit={handleStudentSubmit} className="w-full max-w-xl flex flex-col items-center">
+            <div className="w-full space-y-3.5">
+              {/* Row 1: LMS ID */}
+              <div className="flex items-stretch shadow-xs rounded-xl">
+                <div className="bg-[#051f40] text-white font-medium text-xs sm:text-[0.85rem] px-4 sm:px-5 py-3.5 w-36 sm:w-44 flex items-center justify-start tracking-wider uppercase shrink-0 rounded-l-xl select-none">
+                  LMS ID :
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={lmsId}
+                  onChange={(e) => setLmsId(e.target.value)}
+                  placeholder="STU-99214"
+                  className="flex-1 bg-[#f9fafb] hover:bg-[#f3f4f6] focus:bg-white px-4 py-3.5 text-[#1f2937] font-normal text-sm sm:text-[0.95rem] outline-none border border-[#d1d5db] border-l-0 rounded-r-xl focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 transition-all"
+                />
+              </div>
+
+              {/* Row 2: NAME */}
+              <div className="flex items-stretch shadow-xs rounded-xl">
+                <div className="bg-[#051f40] text-white font-medium text-xs sm:text-[0.85rem] px-4 sm:px-5 py-3.5 w-36 sm:w-44 flex items-center justify-start tracking-wider uppercase shrink-0 rounded-l-xl select-none">
+                  NAME :
+                </div>
+                <input
+                  type="text"
+                  required
+                  value={studentName}
+                  onChange={(e) => setStudentName(e.target.value)}
+                  placeholder="Alex Mercer"
+                  className="flex-1 bg-[#f9fafb] hover:bg-[#f3f4f6] focus:bg-white px-4 py-3.5 text-[#1f2937] font-normal text-sm sm:text-[0.95rem] outline-none border border-[#d1d5db] border-l-0 rounded-r-xl focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 transition-all"
+                />
+              </div>
+
+              {/* Row 3: MOBILE NO */}
+              <div className="flex items-stretch shadow-xs rounded-xl">
+                <div className="bg-[#051f40] text-white font-medium text-xs sm:text-[0.85rem] px-4 sm:px-5 py-3.5 w-36 sm:w-44 flex items-center justify-start tracking-wider uppercase shrink-0 rounded-l-xl select-none">
+                  MOBILE NO :
+                </div>
+                <input
+                  type="tel"
+                  value={mobileNo}
+                  onChange={(e) => setMobileNo(e.target.value)}
+                  placeholder="9876543210"
+                  className="flex-1 bg-[#f9fafb] hover:bg-[#f3f4f6] focus:bg-white px-4 py-3.5 text-[#1f2937] font-normal text-sm sm:text-[0.95rem] outline-none border border-[#d1d5db] border-l-0 rounded-r-xl focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 transition-all"
+                />
+              </div>
             </div>
 
-            {/* Error banner */}
-            {errorMessage && (
-              <div className="bg-rose-50 text-rose-800 border border-rose-200 p-3 rounded-xl text-xs font-medium mb-4">
-                {errorMessage}
+            {/* Centered Navy LOGIN Button styled simply */}
+            <button
+              type="submit"
+              className="bg-[#051f40] hover:bg-[#1b2a60] active:bg-[#031428] text-white font-medium text-sm sm:text-base tracking-wider uppercase px-16 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer mt-8"
+            >
+              LOGIN
+            </button>
+
+            {/* Discreet Quick Fill links */}
+            <div className="mt-6 flex flex-wrap items-center justify-center gap-3 text-xs text-slate-500">
+              <span className="text-[11px] text-slate-400 font-medium">Quick Fill:</span>
+              <button
+                type="button"
+                onClick={() => fillDemo('STU-99214', 'Alex Mercer', 'AIML', '202601', '9876543210')}
+                className="text-[#051f40] hover:text-[#ef5323] font-semibold underline underline-offset-2 cursor-pointer transition"
+              >
+                Alex Mercer
+              </button>
+              <span className="text-slate-300">&bull;</span>
+              <button
+                type="button"
+                onClick={() => fillDemo('STU-48102', 'Jordan Vance', 'FDE', '202101', '9123456780')}
+                className="text-[#051f40] hover:text-[#ef5323] font-semibold underline underline-offset-2 cursor-pointer transition"
+              >
+                Jordan Vance
+              </button>
+            </div>
+          </form>
+        ) : (
+          /* Admin Login Form */
+          <form onSubmit={handleAdminSubmit} className="w-full max-w-xl flex flex-col items-center">
+            <div className="text-center mb-6">
+              <span className="text-xs font-bold text-[#ef5323] uppercase tracking-[1.5px]">
+                Administrator Authentication
+              </span>
+            </div>
+
+            <div className="w-full space-y-3.5">
+              {/* Row 1: EMAIL */}
+              <div className="flex items-stretch shadow-xs rounded-xl">
+                <div className="bg-[#051f40] text-white font-medium text-xs sm:text-[0.85rem] px-4 sm:px-5 py-3.5 w-36 sm:w-44 flex items-center justify-start tracking-wider uppercase shrink-0 rounded-l-xl select-none">
+                  EMAIL :
+                </div>
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="admin@platform.com"
+                  className="flex-1 bg-[#f9fafb] hover:bg-[#f3f4f6] focus:bg-white px-4 py-3.5 text-[#1f2937] font-normal text-sm sm:text-[0.95rem] outline-none border border-[#d1d5db] border-l-0 rounded-r-xl focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 transition-all"
+                />
               </div>
-            )}
 
-            {/* Student Form */}
-            {role === 'student' ? (
-              <form onSubmit={handleStudentSubmit} className="space-y-4 text-xs font-medium">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Student LMS ID</label>
-                  <input
-                    type="text"
-                    required
-                    value={lmsId}
-                    onChange={(e) => setLmsId(e.target.value)}
-                    placeholder="e.g. STU-99214"
-                    className="w-full bg-slate-50 border border-slate-300 px-3.5 py-2.5 rounded-xl font-mono text-slate-900 outline-none focus:border-sky-500 focus:bg-white font-semibold"
-                  />
+              {/* Row 2: PASSWORD */}
+              <div className="flex items-stretch shadow-xs rounded-xl">
+                <div className="bg-[#051f40] text-white font-medium text-xs sm:text-[0.85rem] px-4 sm:px-5 py-3.5 w-36 sm:w-44 flex items-center justify-start tracking-wider uppercase shrink-0 rounded-l-xl select-none">
+                  PASSWORD :
                 </div>
+                <input
+                  type="password"
+                  required
+                  value={adminPassword}
+                  onChange={(e) => setAdminPassword(e.target.value)}
+                  placeholder="••••••••"
+                  className="flex-1 bg-[#f9fafb] hover:bg-[#f3f4f6] focus:bg-white px-4 py-3.5 text-[#1f2937] font-normal text-sm sm:text-[0.95rem] outline-none border border-[#d1d5db] border-l-0 rounded-r-xl focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 transition-all"
+                />
+              </div>
+            </div>
 
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Student Full Name</label>
-                  <input
-                    type="text"
-                    required
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 px-3.5 py-2.5 rounded-xl text-slate-900 outline-none focus:border-sky-500 focus:bg-white font-semibold"
-                  />
-                </div>
+            {/* Admin LOGIN Button */}
+            <button
+              type="submit"
+              className="bg-[#051f40] hover:bg-[#1b2a60] active:bg-[#031428] text-white font-medium text-sm sm:text-base tracking-wider uppercase px-16 py-2.5 rounded-xl shadow-md hover:shadow-lg transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 cursor-pointer mt-8"
+            >
+              LOGIN
+            </button>
 
-                {/* Course and Batch selection */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
-                      <GraduationCap className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Course</span>
-                    </label>
-                    <select
-                      value={studentCourse}
-                      onChange={(e) => setStudentCourse(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 p-2.5 rounded-xl font-semibold text-slate-800 outline-none focus:border-sky-500"
-                    >
-                      {COURSES.filter(c => c !== 'All Courses').map(c => (
-                        <option key={c} value={c}>{c}</option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-slate-700 font-bold mb-1 flex items-center gap-1">
-                      <Users className="w-3.5 h-3.5 text-sky-600" />
-                      <span>Batch</span>
-                    </label>
-                    <select
-                      value={studentBatch}
-                      onChange={(e) => setStudentBatch(e.target.value)}
-                      className="w-full bg-slate-50 border border-slate-300 p-2.5 rounded-xl font-mono font-semibold text-slate-800 outline-none focus:border-sky-500"
-                    >
-                      {BATCHES.map(b => (
-                        <option key={b} value={b}>{b}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                {/* Demo Quick-Fill Options */}
-                <div className="pt-1">
-                  <span className="text-[11px] text-slate-500 font-medium block mb-1.5">Quick Demo Student Profiles:</span>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setLmsId('STU-99214'); setStudentName('Alex Mercer'); setStudentCourse('AIML'); setStudentBatch('202601'); }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-mono border border-slate-300"
-                    >
-                      AIML (Alex / 202601)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setLmsId('STU-48102'); setStudentName('Jordan Vance'); setStudentCourse('FDE'); setStudentBatch('202101'); }}
-                      className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-mono border border-slate-300"
-                    >
-                      FDE (Jordan / 202101)
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-100 transition mt-3"
-                >
-                  Authenticate & Launch Student Portal
-                </button>
-              </form>
-            ) : (
-              /* Admin Form */
-              <form onSubmit={handleAdminSubmit} className="space-y-4 text-xs font-medium">
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Admin Email Address</label>
-                  <input
-                    type="email"
-                    required
-                    value={adminEmail}
-                    onChange={(e) => setAdminEmail(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 px-3.5 py-2.5 rounded-xl text-slate-900 outline-none focus:border-sky-500 focus:bg-white font-semibold"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-slate-700 font-bold mb-1">Password</label>
-                  <input
-                    type="password"
-                    required
-                    value={adminPassword}
-                    onChange={(e) => setAdminPassword(e.target.value)}
-                    className="w-full bg-slate-50 border border-slate-300 px-3.5 py-2.5 rounded-xl text-slate-900 outline-none focus:border-sky-500 focus:bg-white font-semibold"
-                  />
-                </div>
-
-                <div className="pt-2">
-                  <span className="text-[11px] text-slate-500 font-medium block mb-1.5">Admin Demo Credentials:</span>
-                  <button
-                    type="button"
-                    onClick={() => { setAdminEmail('admin@platform.com'); setAdminPassword('admin123'); }}
-                    className="px-2.5 py-1 bg-sky-50 text-sky-800 rounded-lg text-[11px] font-mono border border-sky-200"
-                  >
-                    Auto-fill (admin@platform.com / admin123)
-                  </button>
-                </div>
-
-                <button
-                  type="submit"
-                  className="w-full py-3 bg-sky-600 hover:bg-sky-700 text-white font-bold text-xs rounded-xl shadow-lg shadow-sky-100 transition mt-4"
-                >
-                  Log In to Admin Console
-                </button>
-              </form>
-            )}
-          </div>
-        </div>
+            <div className="mt-6 flex items-center gap-3 text-xs text-slate-500">
+              <button
+                type="button"
+                onClick={() => {
+                  setAdminEmail('admin@platform.com');
+                  setAdminPassword('admin123');
+                }}
+                className="text-[#051f40] hover:text-[#ef5323] font-semibold underline underline-offset-2 cursor-pointer transition"
+              >
+                Auto-fill Admin Credentials
+              </button>
+            </div>
+          </form>
+        )}
       </main>
 
-      {/* Footer */}
-      <footer className="w-full bg-white border-t border-slate-200 py-3.5 px-6 text-center text-xs text-slate-500 font-medium">
-        Secure Assessment & Multi-Domain Testing Platform &copy; 2026. Clean Light Mode Theme.
+      {/* Subtle Footer */}
+      <footer className="w-full py-4 text-center text-xs text-[#555555]">
+        DV Analytics &copy; 2026. All rights reserved.
       </footer>
     </div>
   );

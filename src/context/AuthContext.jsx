@@ -12,7 +12,7 @@ export const AuthProvider = ({ children }) => {
     }
   });
 
-  const loginStudent = (lmsId, studentName = 'Alex Mercer', course = 'AIML', batch = '202601') => {
+  const loginStudent = (lmsId, studentName = 'Alex Mercer', course = 'AIML', batch = '202601', mobileNo = '') => {
     const studentUser = {
       id: lmsId,
       name: studentName,
@@ -20,6 +20,7 @@ export const AuthProvider = ({ children }) => {
       lmsId: lmsId,
       course: course,
       batch: batch,
+      mobileNo: mobileNo || '',
       loginTime: new Date().toISOString()
     };
     setUser(studentUser);
