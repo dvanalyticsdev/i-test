@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useExam } from '../../context/ExamContext';
 import { useAuth } from '../../context/AuthContext';
 import { useProctoring } from '../../hooks/useProctoring';
@@ -246,12 +246,45 @@ export const ExamEnvironment = () => {
   const currentMcq = mcqs[currentQuestionIndex] || null;
   const activeSection = activeSession.activeSection || (compilers.length > 0 && mcqs.length === 0 ? 'compiler' : 'mcq');
 
+  // Compute allowed test domains for compiler isolation
+  const testDomains = useMemo(() => {
+    let raw = activeSession?.domains || (activeSession?.domain ? [activeSession.domain] : []);
+    if (!raw || raw.length === 0) {
+      if (activeSession?.application) raw = [activeSession.application];
+      else if (activeSession?.applications) raw = Array.isArray(activeSession.applications) ? activeSession.applications : [activeSession.applications];
+    }
+    if (!raw || raw.length === 0) return ['python', 'sql', 'power_bi', 'sas', 'excel_ai'];
+
+    const mapped = [];
+    raw.forEach(d => {
+      if (!d) return;
+      const lower = String(d).toLowerCase().trim();
+      if (lower === 'all applications' || lower === 'all') {
+        mapped.push('python', 'sql', 'power_bi', 'sas', 'excel_ai');
+      } else if (lower.includes('python')) mapped.push('python');
+      else if (lower.includes('sql') || lower.includes('postgres')) mapped.push('sql');
+      else if (lower.includes('power') || lower.includes('pbi') || lower.includes('bi')) mapped.push('power_bi');
+      else if (lower.includes('sas')) mapped.push('sas');
+      else if (lower.includes('excel') || lower.includes('xls')) mapped.push('excel_ai');
+      else mapped.push(lower);
+    });
+
+    const unique = Array.from(new Set(mapped));
+    return unique.length > 0 ? unique : ['python'];
+  }, [activeSession]);
+
+  useEffect(() => {
+    if (testDomains.length > 0 && !testDomains.includes(activeCompilerDomain)) {
+      setActiveCompilerDomain(testDomains[0]);
+    }
+  }, [testDomains, activeCompilerDomain]);
+
   // Format Timer
   const mins = Math.floor(secondsLeft / 60);
   const secs = secondsLeft % 60;
   const formattedTime = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-  const currentLabSpec = COMPILER_LAB_SPECS[activeCompilerDomain] || COMPILER_LAB_SPECS.python;
+  const currentLabSpec = COMPILER_LAB_SPECS[activeCompilerDomain] || COMPILER_LAB_SPECS[testDomains[0]] || COMPILER_LAB_SPECS.python;
 
   // If disqualified or finished
   const isDisqualifiedSession = Boolean(
@@ -365,7 +398,7 @@ export const ExamEnvironment = () => {
           {mcqs.length === 0 && (
             <div className="hidden sm:flex items-center gap-1.5 bg-sky-50 text-sky-800 border border-sky-200 px-3 py-1 rounded-xl text-xs font-semibold">
               <Code2 className="w-3.5 h-3.5 text-sky-600" />
-              <span>5 Specialized Compiler Labs</span>
+              <span>{testDomains.length} Specialized Compiler Lab{testDomains.length > 1 ? 's' : ''}</span>
               <span className="bg-amber-100 text-amber-800 text-[10px] px-1.5 py-0.2 rounded font-mono font-bold">LIVE</span>
             </div>
           )}
@@ -433,6 +466,7 @@ export const ExamEnvironment = () => {
               }}
               onSubmitTest={() => setConfirmSubmitOpen(true)}
               showCompilerSection={compilers.length > 0}
+              allowedDomains={testDomains}
             />
           </div>
         </main>
@@ -453,125 +487,41 @@ export const ExamEnvironment = () => {
                   <span>Select Specialized Compiler Lab:</span>
                 </span>
                 <span className="text-[10px] bg-slate-100 text-slate-700 px-2 py-0.5 rounded-md font-mono font-semibold border border-slate-200">
-                  5 Labs Available
+                  {testDomains.length} {testDomains.length === 1 ? 'Lab' : 'Labs'} Available
                 </span>
               </div>
 
-              <div className="grid grid-cols-5 gap-1.5 text-xs font-medium">
-                {/* LAB 1: Python 3.11 */}
-                <button
-                  onClick={() => {
-                    setActiveSection('compiler');
-                    setActiveCompilerDomain('python');
-                  }}
-                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
-                    activeCompilerDomain === 'python'
-                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
-                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
-                      LAB 1
-                    </span>
-                    {compilerCode['coding-py-1'] && compilerCode['coding-py-1'].trim().length > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
-                    )}
-                  </div>
-                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Python 3.11</span>
-                </button>
+              <div className="flex flex-wrap gap-1.5 text-xs font-medium">
+                {testDomains.map((domKey, idx) => {
+                  const spec = COMPILER_LAB_SPECS[domKey] || COMPILER_LAB_SPECS.python;
+                  const isSaved = compilerCode[spec.key] && compilerCode[spec.key].trim().length > 0;
+                  const isActive = activeCompilerDomain === domKey;
 
-                {/* LAB 2: SQL Sandbox */}
-                <button
-                  onClick={() => {
-                    setActiveSection('compiler');
-                    setActiveCompilerDomain('sql');
-                  }}
-                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
-                    activeCompilerDomain === 'sql'
-                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
-                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
-                      LAB 2
-                    </span>
-                    {compilerCode['coding-sql-1'] && compilerCode['coding-sql-1'].trim().length > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
-                    )}
-                  </div>
-                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">SQL Sandbox</span>
-                </button>
-
-                {/* LAB 3: Power BI */}
-                <button
-                  onClick={() => {
-                    setActiveSection('compiler');
-                    setActiveCompilerDomain('power_bi');
-                  }}
-                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
-                    activeCompilerDomain === 'power_bi'
-                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
-                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
-                      LAB 3
-                    </span>
-                    {compilerCode['coding-pb-1'] && compilerCode['coding-pb-1'].trim().length > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
-                    )}
-                  </div>
-                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Power BI</span>
-                </button>
-
-                {/* LAB 4: SAS Studio */}
-                <button
-                  onClick={() => {
-                    setActiveSection('compiler');
-                    setActiveCompilerDomain('sas');
-                  }}
-                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
-                    activeCompilerDomain === 'sas'
-                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
-                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
-                      LAB 4
-                    </span>
-                    {compilerCode['coding-sas-1'] && compilerCode['coding-sas-1'].trim().length > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
-                    )}
-                  </div>
-                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">SAS Studio</span>
-                </button>
-
-                {/* LAB 5: Excel AI */}
-                <button
-                  onClick={() => {
-                    setActiveSection('compiler');
-                    setActiveCompilerDomain('excel_ai');
-                  }}
-                  className={`py-2 px-1 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
-                    activeCompilerDomain === 'excel_ai'
-                      ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
-                      : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-1">
-                    <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
-                      LAB 5
-                    </span>
-                    {compilerCode['coding-excel-1'] && compilerCode['coding-excel-1'].trim().length > 0 && (
-                      <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
-                    )}
-                  </div>
-                  <span className="truncate w-full text-[11px] text-slate-900 font-bold">Excel AI</span>
-                </button>
+                  return (
+                    <button
+                      key={domKey}
+                      onClick={() => {
+                        setActiveSection('compiler');
+                        setActiveCompilerDomain(domKey);
+                      }}
+                      className={`flex-1 min-w-[110px] py-2 px-2 rounded-lg text-center transition flex flex-col items-center gap-1 cursor-pointer ${
+                        isActive
+                          ? 'bg-white border-2 border-slate-900 shadow-xs ring-1 ring-slate-900/5'
+                          : 'bg-white border border-slate-200 hover:border-slate-300 hover:bg-slate-50/80 text-slate-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-[9px] font-mono px-1.5 py-0.5 rounded bg-slate-100 text-slate-900 font-bold border border-slate-200">
+                          LAB {idx + 1}
+                        </span>
+                        {isSaved && (
+                          <span className="text-[10px] text-emerald-600 font-bold" title="Code solution saved">✓</span>
+                        )}
+                      </div>
+                      <span className="truncate w-full text-[11px] text-slate-900 font-bold">{spec.domain || domKey}</span>
+                    </button>
+                  );
+                })}
               </div>
             </div>
 

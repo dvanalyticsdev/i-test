@@ -9392,9 +9392,608 @@
       ],
       "isDisqualified": true,
       "submissionReason": "AUTO_SUBMITTED_CHEATING"
+    },
+    "SESS-40d33404-fc1d-482f-9aea-c0eab6cb05c0": {
+      "sessionId": "SESS-40d33404-fc1d-482f-9aea-c0eab6cb05c0",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "assessmentType": "compiler",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "status": "SUBMITTED",
+      "warningCount": 1,
+      "revision": 2,
+      "startedAt": "2026-09-11T06:21:30.015Z",
+      "durationMinutes": 45,
+      "timeRemainingSeconds": 2700,
+      "proctorLogs": [
+        {
+          "timestamp": "11:51:30 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "99f5a00e-f83b-44d1-a2e8-fb042c313df2",
+          "timestamp": "11:52:29 am",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {
+        "coding-py-1": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+        "coding-sql-1": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+        "coding-pb-1": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+        "coding-sas-1": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+        "coding-excel-1": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2"
+      },
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "compiler",
+      "mcqs": [],
+      "compilers": [
+        {
+          "id": "coding-py-1",
+          "domain": "python",
+          "type": "compiler",
+          "title": "Python Coding Task: Data Cleaning & Aggregation",
+          "description": "Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{\"item\": \"laptop\", \"price\": 1000}, ...]` and returns a dictionary with total revenue per item.",
+          "starterCode": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+          "testCases": [
+            {
+              "input": "Laptop: 2400, Mouse: 25, Keyboard: 75",
+              "expected": "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}"
+            }
+          ]
+        },
+        {
+          "id": "coding-sql-1",
+          "domain": "sql",
+          "type": "compiler",
+          "title": "SQL Challenge: High-Earning Employee Department Ranking",
+          "description": "Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.",
+          "starterCode": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+          "testCases": [
+            {
+              "input": "Query employees table where salary >= 75000",
+              "expected": "Ranked list grouped by department"
+            }
+          ]
+        },
+        {
+          "id": "coding-pb-1",
+          "domain": "power_bi",
+          "type": "compiler",
+          "title": "Power BI Challenge: DAX Dynamic YoY Revenue Measure",
+          "description": "Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.",
+          "starterCode": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+          "testCases": [
+            {
+              "input": "DAX measure evaluation on Sales table",
+              "expected": "YoY Growth % measure compiled"
+            }
+          ]
+        },
+        {
+          "id": "coding-sas-1",
+          "domain": "sas",
+          "type": "compiler",
+          "title": "SAS Challenge: Summary Statistics & PROC MEANS",
+          "description": "Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.",
+          "starterCode": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+          "testCases": [
+            {
+              "input": "EXECUTE PROC MEANS ON sashelp.shoes",
+              "expected": "Summary Table by Region generated"
+            }
+          ]
+        },
+        {
+          "id": "coding-excel-1",
+          "domain": "excel_ai",
+          "type": "compiler",
+          "title": "Excel AI Lab: Dynamic XLOOKUP & AI Classification",
+          "description": "Build a dynamic formula table with XLOOKUP and conditional AI text classification.",
+          "starterCode": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+          "testCases": [
+            {
+              "input": "Product Lookup ID: P-102",
+              "expected": "$1,450.00"
+            }
+          ]
+        }
+      ],
+      "isFinished": true,
+      "disqualifiedReason": null,
+      "lastViolationAt": 1789107749010,
+      "processedViolationIds": [
+        "99f5a00e-f83b-44d1-a2e8-fb042c313df2"
+      ]
+    },
+    "SESS-1e74af43-cdfe-41dd-9dd0-c6a6c315a832": {
+      "sessionId": "SESS-1e74af43-cdfe-41dd-9dd0-c6a6c315a832",
+      "testId": "TEST-AI-03",
+      "testTitle": "Gen AI & Agentic Architecture Assessment",
+      "assessmentType": "compiler",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "status": "SUBMITTED",
+      "warningCount": 0,
+      "revision": 1,
+      "startedAt": "2026-09-11T06:23:44.800Z",
+      "durationMinutes": 40,
+      "timeRemainingSeconds": 2400,
+      "proctorLogs": [
+        {
+          "timestamp": "11:53:44 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {
+        "coding-py-1": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+        "coding-sql-1": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+        "coding-pb-1": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+        "coding-sas-1": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+        "coding-excel-1": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2"
+      },
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "compiler",
+      "mcqs": [],
+      "compilers": [
+        {
+          "id": "coding-py-1",
+          "domain": "python",
+          "type": "compiler",
+          "title": "Python Coding Task: Data Cleaning & Aggregation",
+          "description": "Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{\"item\": \"laptop\", \"price\": 1000}, ...]` and returns a dictionary with total revenue per item.",
+          "starterCode": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+          "testCases": [
+            {
+              "input": "Laptop: 2400, Mouse: 25, Keyboard: 75",
+              "expected": "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}"
+            }
+          ]
+        },
+        {
+          "id": "coding-sql-1",
+          "domain": "sql",
+          "type": "compiler",
+          "title": "SQL Challenge: High-Earning Employee Department Ranking",
+          "description": "Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.",
+          "starterCode": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+          "testCases": [
+            {
+              "input": "Query employees table where salary >= 75000",
+              "expected": "Ranked list grouped by department"
+            }
+          ]
+        },
+        {
+          "id": "coding-pb-1",
+          "domain": "power_bi",
+          "type": "compiler",
+          "title": "Power BI Challenge: DAX Dynamic YoY Revenue Measure",
+          "description": "Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.",
+          "starterCode": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+          "testCases": [
+            {
+              "input": "DAX measure evaluation on Sales table",
+              "expected": "YoY Growth % measure compiled"
+            }
+          ]
+        },
+        {
+          "id": "coding-sas-1",
+          "domain": "sas",
+          "type": "compiler",
+          "title": "SAS Challenge: Summary Statistics & PROC MEANS",
+          "description": "Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.",
+          "starterCode": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+          "testCases": [
+            {
+              "input": "EXECUTE PROC MEANS ON sashelp.shoes",
+              "expected": "Summary Table by Region generated"
+            }
+          ]
+        },
+        {
+          "id": "coding-excel-1",
+          "domain": "excel_ai",
+          "type": "compiler",
+          "title": "Excel AI Lab: Dynamic XLOOKUP & AI Classification",
+          "description": "Build a dynamic formula table with XLOOKUP and conditional AI text classification.",
+          "starterCode": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+          "testCases": [
+            {
+              "input": "Product Lookup ID: P-102",
+              "expected": "$1,450.00"
+            }
+          ]
+        }
+      ],
+      "isFinished": true,
+      "disqualifiedReason": null,
+      "lastViolationAt": 0
+    },
+    "SESS-697a1a3c-6af2-4f9a-9f1a-26add0181e10": {
+      "sessionId": "SESS-697a1a3c-6af2-4f9a-9f1a-26add0181e10",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "assessmentType": "compiler",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "status": "DISQUALIFIED",
+      "warningCount": 2,
+      "revision": 2,
+      "startedAt": "2026-09-11T06:24:02.831Z",
+      "durationMinutes": 45,
+      "timeRemainingSeconds": 2700,
+      "proctorLogs": [
+        {
+          "timestamp": "11:54:02 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "3d0c1ed9-1ad6-49f8-b62a-0d24e5ceb761",
+          "timestamp": "11:54:07 am",
+          "type": "WARNING",
+          "message": "Warning 1/2: Window focus lost / switched away from assessment screen",
+          "warningNum": 1
+        },
+        {
+          "eventId": "d2140b15-4173-4647-b0f0-b8fab27588cc",
+          "timestamp": "11:54:13 am",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {
+        "coding-py-1": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+        "coding-sql-1": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+        "coding-pb-1": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+        "coding-sas-1": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+        "coding-excel-1": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2"
+      },
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "compiler",
+      "mcqs": [],
+      "compilers": [
+        {
+          "id": "coding-py-1",
+          "domain": "python",
+          "type": "compiler",
+          "title": "Python Coding Task: Data Cleaning & Aggregation",
+          "description": "Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{\"item\": \"laptop\", \"price\": 1000}, ...]` and returns a dictionary with total revenue per item.",
+          "starterCode": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+          "testCases": [
+            {
+              "input": "Laptop: 2400, Mouse: 25, Keyboard: 75",
+              "expected": "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}"
+            }
+          ]
+        },
+        {
+          "id": "coding-sql-1",
+          "domain": "sql",
+          "type": "compiler",
+          "title": "SQL Challenge: High-Earning Employee Department Ranking",
+          "description": "Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.",
+          "starterCode": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+          "testCases": [
+            {
+              "input": "Query employees table where salary >= 75000",
+              "expected": "Ranked list grouped by department"
+            }
+          ]
+        },
+        {
+          "id": "coding-pb-1",
+          "domain": "power_bi",
+          "type": "compiler",
+          "title": "Power BI Challenge: DAX Dynamic YoY Revenue Measure",
+          "description": "Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.",
+          "starterCode": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+          "testCases": [
+            {
+              "input": "DAX measure evaluation on Sales table",
+              "expected": "YoY Growth % measure compiled"
+            }
+          ]
+        },
+        {
+          "id": "coding-sas-1",
+          "domain": "sas",
+          "type": "compiler",
+          "title": "SAS Challenge: Summary Statistics & PROC MEANS",
+          "description": "Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.",
+          "starterCode": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+          "testCases": [
+            {
+              "input": "EXECUTE PROC MEANS ON sashelp.shoes",
+              "expected": "Summary Table by Region generated"
+            }
+          ]
+        },
+        {
+          "id": "coding-excel-1",
+          "domain": "excel_ai",
+          "type": "compiler",
+          "title": "Excel AI Lab: Dynamic XLOOKUP & AI Classification",
+          "description": "Build a dynamic formula table with XLOOKUP and conditional AI text classification.",
+          "starterCode": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+          "testCases": [
+            {
+              "input": "Product Lookup ID: P-102",
+              "expected": "$1,450.00"
+            }
+          ]
+        }
+      ],
+      "isFinished": true,
+      "disqualifiedReason": "Test Automatically Terminated: You triggered 2 anti-cheating violations (Exited forced fullscreen examination mode). As per exam policy, your assessment has been automatically submitted and recorded as DISQUALIFIED (CHEATING DETECTED). Further answering is disabled.",
+      "lastViolationAt": 1789107853525,
+      "processedViolationIds": [
+        "3d0c1ed9-1ad6-49f8-b62a-0d24e5ceb761",
+        "d2140b15-4173-4647-b0f0-b8fab27588cc"
+      ],
+      "isDisqualified": true,
+      "submissionReason": "AUTO_SUBMITTED_CHEATING"
+    },
+    "SESS-ac90ceee-1af7-4197-abaf-cfd6c66a24cf": {
+      "sessionId": "SESS-ac90ceee-1af7-4197-abaf-cfd6c66a24cf",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "assessmentType": "compiler",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "status": "SUBMITTED",
+      "warningCount": 1,
+      "revision": 2,
+      "startedAt": "2026-09-11T06:30:41.936Z",
+      "durationMinutes": 45,
+      "timeRemainingSeconds": 2700,
+      "proctorLogs": [
+        {
+          "timestamp": "12:00:41 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "453bc35a-5e6e-4965-bf81-072f854df17a",
+          "timestamp": "12:01:23 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        }
+      ],
+      "userAnswers": {},
+      "compilerCode": {
+        "coding-py-1": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+        "coding-sql-1": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+        "coding-pb-1": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+        "coding-sas-1": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+        "coding-excel-1": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2"
+      },
+      "markedForReview": {},
+      "currentQuestionIndex": 0,
+      "activeSection": "compiler",
+      "mcqs": [],
+      "compilers": [
+        {
+          "id": "coding-py-1",
+          "domain": "python",
+          "type": "compiler",
+          "title": "Python Coding Task: Data Cleaning & Aggregation",
+          "description": "Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{\"item\": \"laptop\", \"price\": 1000}, ...]` and returns a dictionary with total revenue per item.",
+          "starterCode": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n",
+          "testCases": [
+            {
+              "input": "Laptop: 2400, Mouse: 25, Keyboard: 75",
+              "expected": "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}"
+            }
+          ]
+        },
+        {
+          "id": "coding-sql-1",
+          "domain": "sql",
+          "type": "compiler",
+          "title": "SQL Challenge: High-Earning Employee Department Ranking",
+          "description": "Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.",
+          "starterCode": "SELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;",
+          "testCases": [
+            {
+              "input": "Query employees table where salary >= 75000",
+              "expected": "Ranked list grouped by department"
+            }
+          ]
+        },
+        {
+          "id": "coding-pb-1",
+          "domain": "power_bi",
+          "type": "compiler",
+          "title": "Power BI Challenge: DAX Dynamic YoY Revenue Measure",
+          "description": "Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.",
+          "starterCode": "// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)",
+          "testCases": [
+            {
+              "input": "DAX measure evaluation on Sales table",
+              "expected": "YoY Growth % measure compiled"
+            }
+          ]
+        },
+        {
+          "id": "coding-sas-1",
+          "domain": "sas",
+          "type": "compiler",
+          "title": "SAS Challenge: Summary Statistics & PROC MEANS",
+          "description": "Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.",
+          "starterCode": "/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;",
+          "testCases": [
+            {
+              "input": "EXECUTE PROC MEANS ON sashelp.shoes",
+              "expected": "Summary Table by Region generated"
+            }
+          ]
+        },
+        {
+          "id": "coding-excel-1",
+          "domain": "excel_ai",
+          "type": "compiler",
+          "title": "Excel AI Lab: Dynamic XLOOKUP & AI Classification",
+          "description": "Build a dynamic formula table with XLOOKUP and conditional AI text classification.",
+          "starterCode": "=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+          "testCases": [
+            {
+              "input": "Product Lookup ID: P-102",
+              "expected": "$1,450.00"
+            }
+          ]
+        }
+      ],
+      "isFinished": true,
+      "disqualifiedReason": null,
+      "lastViolationAt": 1789108283089,
+      "processedViolationIds": [
+        "453bc35a-5e6e-4965-bf81-072f854df17a"
+      ]
     }
   },
   "submissions": [
+    {
+      "id": "SUB-3305",
+      "sessionId": "SESS-ac90ceee-1af7-4197-abaf-cfd6c66a24cf",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "submittedAt": "11/9/2026, 12:01:36 pm",
+      "score": "Compiler Assessment Submitted",
+      "compilerStatus": "5 Labs Saved",
+      "cheatingStatus": "1 Warning(s) Logged",
+      "proctorLogs": [
+        {
+          "timestamp": "12:00:41 pm",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "453bc35a-5e6e-4965-bf81-072f854df17a",
+          "timestamp": "12:01:23 pm",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        },
+        {
+          "timestamp": "12:01:36 pm",
+          "type": "INFO",
+          "message": "Assessment successfully finalized: Candidate Manual Submission"
+        }
+      ],
+      "codeSubmitted": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n\n\n---\n\nSELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;\n\n---\n\n// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)\n\n---\n\n/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;\n\n---\n\n=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "SUB-3966",
+      "sessionId": "SESS-697a1a3c-6af2-4f9a-9f1a-26add0181e10",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "submittedAt": "11/9/2026, 11:54:13 am",
+      "score": "0 (Disqualified - 2 Violations)",
+      "compilerStatus": "Terminated on Second Strike",
+      "cheatingStatus": "DISQUALIFIED (CHEATING DETECTED - 2 STRIKES)",
+      "proctorLogs": [
+        {
+          "timestamp": "11:54:02 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "3d0c1ed9-1ad6-49f8-b62a-0d24e5ceb761",
+          "timestamp": "11:54:07 am",
+          "type": "WARNING",
+          "message": "Warning 1/2: Window focus lost / switched away from assessment screen",
+          "warningNum": 1
+        },
+        {
+          "eventId": "d2140b15-4173-4647-b0f0-b8fab27588cc",
+          "timestamp": "11:54:13 am",
+          "type": "CRITICAL",
+          "message": "Violation 2/2: Second violation detected (Exited forced fullscreen examination mode). Test automatically submitted and terminated with score marked as DISQUALIFIED (CHEATING DETECTED).",
+          "warningNum": 2
+        }
+      ],
+      "codeSubmitted": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n\n\n---\n\nSELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;\n\n---\n\n// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)\n\n---\n\n/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;\n\n---\n\n=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+      "status": "DISQUALIFIED (CHEATING DETECTED)"
+    },
+    {
+      "id": "SUB-1767",
+      "sessionId": "SESS-1e74af43-cdfe-41dd-9dd0-c6a6c315a832",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "testId": "TEST-AI-03",
+      "testTitle": "Gen AI & Agentic Architecture Assessment",
+      "submittedAt": "11/9/2026, 11:53:54 am",
+      "score": "Compiler Assessment Submitted",
+      "compilerStatus": "5 Labs Saved",
+      "cheatingStatus": "Clean (0 Warnings)",
+      "proctorLogs": [
+        {
+          "timestamp": "11:53:44 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "timestamp": "11:53:54 am",
+          "type": "INFO",
+          "message": "Assessment successfully finalized: Candidate Manual Submission"
+        }
+      ],
+      "codeSubmitted": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n\n\n---\n\nSELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;\n\n---\n\n// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)\n\n---\n\n/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;\n\n---\n\n=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+      "status": "SUBMITTED"
+    },
+    {
+      "id": "SUB-2901",
+      "sessionId": "SESS-40d33404-fc1d-482f-9aea-c0eab6cb05c0",
+      "studentId": "STU-48102",
+      "studentName": "Jordan Vance",
+      "testId": "TEST-PY-01",
+      "testTitle": "Python & Data Engineering Comprehensive Exam",
+      "submittedAt": "11/9/2026, 11:52:40 am",
+      "score": "Compiler Assessment Submitted",
+      "compilerStatus": "5 Labs Saved",
+      "cheatingStatus": "1 Warning(s) Logged",
+      "proctorLogs": [
+        {
+          "timestamp": "11:51:30 am",
+          "type": "INFO",
+          "message": "Exam session initialized on server (COMPILER). Proctor enforcement active (Maximum 2 strikes)."
+        },
+        {
+          "eventId": "99f5a00e-f83b-44d1-a2e8-fb042c313df2",
+          "timestamp": "11:52:29 am",
+          "type": "WARNING",
+          "message": "Warning 1/2: Exited forced fullscreen examination mode",
+          "warningNum": 1
+        },
+        {
+          "timestamp": "11:52:40 am",
+          "type": "INFO",
+          "message": "Assessment successfully finalized: Candidate Manual Submission"
+        }
+      ],
+      "codeSubmitted": "def process_sales(transactions):    # Your code here    result = {}    for item in transactions:        name = item[\"item\"]        price = item[\"price\"]        result[name] = result.get(name, 0) + price    return result# Test invocation:data = [    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Mouse\", \"price\": 25},    {\"item\": \"Laptop\", \"price\": 1200},    {\"item\": \"Keyboard\", \"price\": 75}]print(\"Result:\", process_sales(data))\n\n\n---\n\nSELECT     department,    name,    salary,    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rankFROM employeesWHERE salary >= 75000ORDER BY department, salary DESC;\n\n---\n\n// Measure 1: Total SalesTotal Revenue = SUM(Sales[Revenue])// Measure 2: Previous Year RevenuePY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))// Measure 3: YoY Growth %YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)\n\n---\n\n/* SAS Data Step & PROC MEANS */DATA work.sales_summary;    SET sashelp.shoes;    WHERE Sales > 50000;RUN;PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;    CLASS Region;    VAR Sales Returns;RUN;\n\n---\n\n=XLOOKUP(A2, Products[ID], Products[Price], \"Not Found\") * B2",
+      "status": "SUBMITTED"
+    },
     {
       "id": "SUB-9354",
       "sessionId": "SESS-b2600409-dcde-4d7c-a263-3b1f9e31aba3",

@@ -12,7 +12,8 @@ export const QuestionNavPanel = ({
   onSelectQuestion,
   onSelectCompiler,
   onSubmitTest,
-  showCompilerSection = true
+  showCompilerSection = true,
+  allowedDomains = ['python']
 }) => {
   const safeAnswers = userAnswers || {};
   const safeReviews = markedForReview || {};
@@ -29,13 +30,18 @@ export const QuestionNavPanel = ({
     excel_ai: 'coding-excel-1'
   };
 
-  const compilerItems = [
+  const allCompilerItems = [
     { id: 'python', label: 'Python 3.11', icon: 'PY', desc: 'Data Cleaning & Logic' },
     { id: 'sql', label: 'SQL Engine', icon: 'SQL', desc: 'Queries & Window Funcs' },
     { id: 'power_bi', label: 'Power BI DAX', icon: 'PBI', desc: 'DAX Measures & Charts' },
     { id: 'sas', label: 'SAS Studio', icon: 'SAS', desc: 'PROC MEANS & Output' },
     { id: 'excel_ai', label: 'Excel AI Grid', icon: 'XLS', desc: 'XLOOKUP & Copilot' },
   ];
+
+  const compilerItems = allCompilerItems.filter(item => {
+    if (!allowedDomains || allowedDomains.includes('All Applications')) return true;
+    return allowedDomains.includes(item.id);
+  });
 
   return (
     <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm flex flex-col justify-between select-none space-y-4">
