@@ -1,6 +1,16 @@
 import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import {
+  findStudentByLmsId,
+  isMongoConfigured,
+  deleteScheduledTestById,
+  listStudents,
+  loadAppState,
+  saveAppState,
+  syncStudentsFromCms,
+  upsertScheduledTest
+} from './mongoStore.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -11,13 +21,17 @@ function initDb() {
   if (!fs.existsSync(DB_FILE)) {
     const initialData = {
       sessions: {},
-      submissions: []
+      submissions: [],
+      scheduledTests: []
     };
     fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2), 'utf-8');
   }
 }
 
-function readDb() {
+async function readDb() {
+  const mongoState = await loadAppState();
+  if (mongoState) return mongoState;
+
   initDb();
   try {
     const content = fs.readFileSync(DB_FILE, 'utf-8');
@@ -28,7 +42,9 @@ function readDb() {
   }
 }
 
-function writeDb(data) {
+async function writeDb(data) {
+  if (await saveAppState(data)) return;
+
   try {
     const tempFile = `${DB_FILE}.tmp`;
     fs.writeFileSync(tempFile, JSON.stringify(data, null, 2), 'utf-8');
@@ -65,6 +81,9 @@ function parseJsonBody(req) {
 function sendJson(res, statusCode, data) {
   res.writeHead(statusCode, {
     'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    'Pragma': 'no-cache',
+    'Expires': '0',
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization'
@@ -103,11 +122,88 @@ async function handleApiRoute(req, res) {
   // Finish asynchronous input before reading state. All mutations below are
   // synchronous read/modify/atomic-rename transactions in this server process.
   const body = (method === 'POST' || method === 'DELETE') ? await parseJsonBody(req) : {};
-  const db = readDb();
+  const db = await readDb();
 
   // 1. Health check
   if (url === '/api/health' && method === 'GET') {
-    return sendJson(res, 200, { status: 'healthy', timestamp: new Date().toISOString() });
+    return sendJson(res, 200, { status: 'healthy', storage: isMongoConfigured() ? 'mongo' : 'file', timestamp: new Date().toISOString() });
+  }
+
+  if (url === '/api/scheduled-tests' && method === 'GET') {
+    return sendJson(res, 200, { success: true, tests: db.scheduledTests || [] });
+  }
+
+  if (url === '/api/scheduled-tests' && method === 'POST') {
+    if (!body.id || !body.title) {
+      return sendJson(res, 400, { success: false, error: 'Test id and title are required.' });
+    }
+    const now = new Date().toISOString();
+    const test = {
+      ...body,
+      createdAt: body.createdAt || now,
+      updatedAt: now
+    };
+    const mongoTest = await upsertScheduledTest(test);
+    if (mongoTest) {
+      return sendJson(res, 200, { success: true, test: mongoTest });
+    }
+    db.scheduledTests = [
+      test,
+      ...(db.scheduledTests || []).filter(item => item.id !== test.id)
+    ];
+    await writeDb(db);
+    return sendJson(res, 200, { success: true, test });
+  }
+
+  const deleteScheduledTestMatch = url.match(/^\/api\/scheduled-tests\/([^/?]+)$/);
+  if (deleteScheduledTestMatch && method === 'DELETE') {
+    const testId = decodeURIComponent(deleteScheduledTestMatch[1]);
+    const mongoDeleted = await deleteScheduledTestById(testId);
+    if (mongoDeleted !== null) {
+      return sendJson(res, 200, { success: true, deleted: mongoDeleted, deletedId: testId });
+    }
+    const beforeCount = (db.scheduledTests || []).length;
+    db.scheduledTests = (db.scheduledTests || []).filter(test => test.id !== testId);
+    await writeDb(db);
+    return sendJson(res, 200, { success: true, deleted: beforeCount > db.scheduledTests.length, deletedId: testId });
+  }
+
+  if (url === '/api/students' && method === 'GET') {
+    const students = await listStudents();
+    return sendJson(res, 200, { success: true, students });
+  }
+
+  if (url === '/api/admin/login' && method === 'POST') {
+    const adminEmail = process.env.ADMIN_EMAIL;
+    const adminPassword = process.env.ADMIN_PASSWORD;
+    if (!adminEmail || !adminPassword) {
+      return sendJson(res, 500, { success: false, error: 'Admin login is not configured.' });
+    }
+    if (body.email === adminEmail && body.password === adminPassword) {
+      return sendJson(res, 200, {
+        success: true,
+        admin: { id: adminEmail, email: adminEmail, name: adminEmail.split('@')[0] },
+        syncToken: process.env.ADMIN_SYNC_TOKEN || ''
+      });
+    }
+    return sendJson(res, 401, { success: false, error: 'Invalid admin credentials.' });
+  }
+
+  const studentMatch = url.match(/^\/api\/students\/([^/?]+)$/);
+  if (studentMatch && method === 'GET') {
+    const lmsId = decodeURIComponent(studentMatch[1]);
+    const student = await findStudentByLmsId(lmsId);
+    if (!student) return sendJson(res, 404, { success: false, error: 'Student not found' });
+    return sendJson(res, 200, { success: true, student });
+  }
+
+  if (url === '/api/admin/sync-students' && method === 'POST') {
+    const configuredToken = process.env.ADMIN_SYNC_TOKEN;
+    if (configuredToken && req.headers.authorization !== `Bearer ${configuredToken}`) {
+      return sendJson(res, 403, { success: false, error: 'Unauthorized sync request' });
+    }
+    const result = await syncStudentsFromCms();
+    return sendJson(res, 200, { success: true, ...result });
   }
 
   // 2. Start new session: POST /api/sessions/start
@@ -161,7 +257,7 @@ async function handleApiRoute(req, res) {
     }
 
     db.sessions[sessionId] = newSession;
-    writeDb(db);
+    await writeDb(db);
 
     return sendJson(res, 200, { success: true, session: newSession });
   }
@@ -189,7 +285,7 @@ async function handleApiRoute(req, res) {
         session.isFinished = true;
         session.status = 'COMPLETED_TIMER_EXPIRED';
         finalizeSubmission(db, session, 'Timer Expired Auto-Submit');
-        writeDb(db);
+        await writeDb(db);
       }
     }
 
@@ -273,7 +369,7 @@ async function handleApiRoute(req, res) {
       };
 
       db.submissions.unshift(disqualifiedSubmission);
-      writeDb(db);
+      await writeDb(db);
 
       return sendJson(res, 200, {
         success: true,
@@ -287,7 +383,7 @@ async function handleApiRoute(req, res) {
       const logType = 'WARNING';
       const message = `Warning 1/2: ${reason}`;
       session.proctorLogs.push({ eventId: body.eventId, timestamp, type: logType, message, warningNum: currentCount });
-      writeDb(db);
+      await writeDb(db);
 
       return sendJson(res, 200, {
         success: true,
@@ -312,7 +408,7 @@ async function handleApiRoute(req, res) {
     const { questionId, optionIndex } = body;
     session.userAnswers[questionId] = optionIndex;
     session.revision = (session.revision || 0) + 1;
-    writeDb(db);
+    await writeDb(db);
 
     return sendJson(res, 200, { success: true, userAnswers: session.userAnswers, revision: session.revision });
   }
@@ -330,7 +426,7 @@ async function handleApiRoute(req, res) {
     const { compilerId, code } = body;
     session.compilerCode[compilerId] = code;
     session.revision = (session.revision || 0) + 1;
-    writeDb(db);
+    await writeDb(db);
 
     return sendJson(res, 200, { success: true, revision: session.revision });
   }
@@ -362,7 +458,7 @@ async function handleApiRoute(req, res) {
     session.status = 'SUBMITTED';
     session.revision = (session.revision || 0) + 1;
     const submission = finalizeSubmission(db, session, 'Candidate Manual Submission');
-    writeDb(db);
+    await writeDb(db);
 
     return sendJson(res, 200, { success: true, session, submission });
   }
@@ -378,7 +474,7 @@ async function handleApiRoute(req, res) {
     const idSet = new Set(ids);
     const beforeCount = (db.submissions || []).length;
     db.submissions = (db.submissions || []).filter(s => !idSet.has(s.id) && !idSet.has(s.sessionId));
-    writeDb(db);
+    await writeDb(db);
     return sendJson(res, 200, { success: true, deletedCount: beforeCount - db.submissions.length });
   }
 
@@ -388,7 +484,7 @@ async function handleApiRoute(req, res) {
     const subId = decodeURIComponent(deleteSubMatch[1]);
     const beforeCount = (db.submissions || []).length;
     db.submissions = (db.submissions || []).filter(s => s.id !== subId && s.sessionId !== subId);
-    writeDb(db);
+    await writeDb(db);
     return sendJson(res, 200, { success: true, deleted: beforeCount > db.submissions.length, deletedId: subId });
   }
 

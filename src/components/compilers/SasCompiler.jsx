@@ -24,7 +24,8 @@ export const SasCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const runSas = () => {
     setIsExecuting(true);
     setTimeout(() => {
-      setOutput(`=== SAS System Output (PROC MEANS Procedure) ===
+      const validation = validateSasProgram(sasCode);
+      setOutput(validation.passed ? `=== SAS System Output (PROC MEANS Procedure) ===
 
 The MEANS Procedure
 Data Set: WORK.SALES_SUMMARY
@@ -38,7 +39,7 @@ Asia             22    Sales        22     142,650.00      45,900.00      52,800
                        Returns      22       4,850.10       2,100.30       1,400.00       9,500.00
 --------------------------------------------------------------------------------------------------
 NOTE: There were 36 observations read from the data set WORK.SALES_SUMMARY.
-NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.`);
+NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.` : `=== SAS System Validation Log ===\nERROR: ${validation.message}`);
       setIsExecuting(false);
     }, 550);
   };
@@ -113,7 +114,7 @@ NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.`);
             <Terminal className="w-3.5 h-3.5 text-purple-400" />
             <span>SAS System Output & Log</span>
           </div>
-          {output && (
+          {output && !output.includes('ERROR:') && (
             <span className="text-emerald-400 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3"/> PROC Success
             </span>
@@ -132,3 +133,18 @@ NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.`);
     </div>
   );
 };
+
+function validateSasProgram(source) {
+  const sas = source.toLowerCase().replace(/\s+/g, ' ');
+  const checks = [
+    ['PROC MEANS is required', sas.includes('proc means')],
+    ['Use DATA=WORK.SALES_SUMMARY', sas.includes('data=work.sales_summary') || sas.includes('data = work.sales_summary')],
+    ['Include CLASS Region', sas.includes('class region')],
+    ['Analyze Sales and Returns in VAR', sas.includes('var sales returns') || sas.includes('var returns sales')],
+    ['End the procedure with RUN;', sas.includes('run;')]
+  ];
+  const failed = checks.find(([, pass]) => !pass);
+  return failed
+    ? { passed: false, message: failed[0] }
+    : { passed: true };
+}

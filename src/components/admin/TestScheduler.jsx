@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useExam } from '../../context/ExamContext';
-import { BATCHES } from '../../data/mockQuestionBank';
-import { Plus, Search, ChevronDown, FileText, Code2, Check, Calendar, Clock, X, Filter, Upload, ExternalLink } from 'lucide-react';
+import { downloadAssessmentExcelTemplate, parseAssessmentExcelFile } from '../../utils/assessmentDocumentUtils';
+import { Plus, Search, ChevronDown, FileText, Code2, Check, Calendar, Clock, X, Filter, Upload, ExternalLink, Trash2, Download } from 'lucide-react';
 
 const APPLICATIONS = [
   { id: 'excel_ai', name: 'EXCEL AI' },
@@ -15,7 +15,122 @@ const APPLICATIONS = [
   { id: 'mlops', name: 'MLOPS & LLMOPS' }
 ];
 
-const COURSE_OPTIONS = ['AIML', 'APCFCS', 'APIDA', 'APIDS', 'DAS', 'FDE', 'Excel AI & Automation', 'SQL & Data Analytics'];
+const SUPPORTED_COMPILER_APPLICATION_IDS = ['python', 'sql', 'sas', 'power_bi'];
+const PRACTICAL_FILE_TYPES = {
+  python: {
+    label: 'Python',
+    extension: '.py',
+    sampleFileName: 'python_practical_sample.py',
+    sampleContent: `# i-test Python Practical Sample
+# Candidate task:
+# Complete process_sales so it returns total positive revenue grouped by item.
+
+transactions = [
+    {"item": "Laptop", "price": 1200},
+    {"item": "Mouse", "price": 25},
+    {"item": "Laptop", "price": 1200},
+    {"item": "Laptop", "price": -300},
+    {"item": "Keyboard", "price": 75},
+]
+
+def process_sales(transactions):
+    result = {}
+    # Write your solution here
+    return result
+
+print(process_sales(transactions))
+# Expected output:
+# {'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}
+`
+  },
+  sql: {
+    label: 'SQL',
+    extension: '.sql',
+    sampleFileName: 'sql_practical_sample.sql',
+    sampleContent: `-- i-test SQL Practical Sample
+-- Admin can keep schema, seed data, task, and expected output in one .sql file.
+-- For multiple tables/files, upload multiple .sql files together.
+
+CREATE TABLE employees (
+  id INT PRIMARY KEY,
+  name VARCHAR(100),
+  department VARCHAR(100),
+  salary INT
+);
+
+INSERT INTO employees (id, name, department, salary) VALUES
+(101, 'Sarah Jenkins', 'Engineering', 115000),
+(104, 'David Chen', 'Engineering', 98000),
+(108, 'Elena Rostova', 'Data Science', 125000),
+(112, 'Marcus Vance', 'Data Science', 92000),
+(115, 'Aria Montgomery', 'Product', 105000);
+
+-- Candidate task:
+-- Return id, name, department, salary, and salary_rank.
+-- Rank employees by salary descending within each department.
+
+SELECT
+  id,
+  name,
+  department,
+  salary,
+  DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank
+FROM employees
+ORDER BY department, salary_rank;
+`
+  },
+  sas: {
+    label: 'SAS',
+    extension: '.sas',
+    sampleFileName: 'sas_practical_sample.sas',
+    sampleContent: `/* i-test SAS Practical Sample
+   Candidate task:
+   Create a regional sales summary and produce mean, min, and max sales.
+*/
+
+DATA WORK.SALES_SUMMARY;
+  INPUT Region $ Sales Returns;
+  DATALINES;
+North 12000 300
+North 18000 250
+South 14500 400
+South 21000 375
+West 17500 225
+;
+RUN;
+
+PROC MEANS DATA=WORK.SALES_SUMMARY MEAN MIN MAX;
+  CLASS Region;
+  VAR Sales Returns;
+RUN;
+`
+  },
+  power_bi: {
+    label: 'Power BI',
+    extension: '.dax',
+    sampleFileName: 'power_bi_practical_sample.dax',
+    sampleContent: `-- i-test Power BI / DAX Practical Sample
+-- Candidate task:
+-- Create measures for total revenue and year-over-year growth.
+
+Total Revenue =
+SUM(Sales[Revenue])
+
+PY Revenue =
+CALCULATE(
+    [Total Revenue],
+    SAMEPERIODLASTYEAR('Date'[Date])
+)
+
+YoY Growth % =
+DIVIDE(
+    [Total Revenue] - [PY Revenue],
+    [PY Revenue],
+    0
+)
+`
+  }
+};
 
 // Helper to calculate 3-Stage Test Lifecycle State
 export const getTestStage = (test) => {
@@ -34,11 +149,11 @@ export const getTestStage = (test) => {
 };
 
 export const TestScheduler = () => {
-  const { scheduledTests, addScheduledTest, assessments } = useExam();
+  const { scheduledTests, addScheduledTest, deleteScheduledTest, assessments, addAssessment } = useExam();
   const [showModal, setShowModal] = useState(false);
 
-  // Top Filter States (Multi-Select & Lifecycle Filters)
-  const [topApplications, setTopApplications] = useState(['All Applications']);
+  // Top Filter States
+  const [topApplication, setTopApplication] = useState('All Applications');
   const [topCourses, setTopCourses] = useState(['All Courses']);
   const [topBatches, setTopBatches] = useState(['All Batches']);
   const [filterStatus, setFilterStatus] = useState('All Statuses'); // 'All Statuses' | 'Scheduled' | 'Live' | 'Closed'
@@ -52,6 +167,7 @@ export const TestScheduler = () => {
 
   // Modal Form States
   const [testTitle, setTestTitle] = useState('');
+  const [students, setStudents] = useState([]);
   const [assessmentType, setAssessmentType] = useState('mcq'); // 'mcq' | 'practical' | 'hybrid'
   const [mcqFileId, setMcqFileId] = useState('');
   const [practicalFileId, setPracticalFileId] = useState('');
@@ -60,17 +176,18 @@ export const TestScheduler = () => {
   const [mcqSourceMode, setMcqSourceMode] = useState('upload'); // 'upload' | 'select'
   const [practicalSourceMode, setPracticalSourceMode] = useState('upload'); // 'upload' | 'select'
   const [mcqUploadedFile, setMcqUploadedFile] = useState(null);
-  const [practicalUploadedFile, setPracticalUploadedFile] = useState(null);
+  const [mcqParsedAssessment, setMcqParsedAssessment] = useState(null);
+  const [practicalUploadedFiles, setPracticalUploadedFiles] = useState([]);
   
   // Date & Time Scheduling States
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
   const [startTime, setStartTime] = useState('10:00');
   const [duration, setDuration] = useState(45);
 
-  // Multi-select states inside modal
-  const [selectedApplications, setSelectedApplications] = useState(['python']);
-  const [selectedCourses, setSelectedCourses] = useState(['AIML']);
-  const [selectedBatches, setSelectedBatches] = useState(['202601']);
+  // Application is single-select; course and batch can still target multiple groups.
+  const [selectedApplication, setSelectedApplication] = useState('python');
+  const [selectedCourses, setSelectedCourses] = useState([]);
+  const [selectedBatches, setSelectedBatches] = useState([]);
 
   // Modal Dropdown Toggle States
   const [appDropdownOpen, setAppDropdownOpen] = useState(false);
@@ -78,36 +195,123 @@ export const TestScheduler = () => {
   const [batchDropdownOpen, setBatchDropdownOpen] = useState(false);
   const [modalBatchSearch, setModalBatchSearch] = useState('');
 
-  const topFilteredBatches = BATCHES.filter(b => b.toLowerCase().includes(topBatchSearchQuery.toLowerCase()));
-  const modalFilteredBatches = BATCHES.filter(b => b.toLowerCase().includes(modalBatchSearch.toLowerCase().trim()));
+  const courseOptions = buildUniqueOptions(students, ['courses', 'course']);
+  const batchOptions = buildUniqueOptions(students, ['batches', 'batch']);
+  const topFilteredBatches = batchOptions.filter(b => b.toLowerCase().includes(topBatchSearchQuery.toLowerCase()));
+  const modalFilteredBatches = batchOptions.filter(b => b.toLowerCase().includes(modalBatchSearch.toLowerCase().trim()));
+  const isCompilerAssessment = assessmentType === 'practical' || assessmentType === 'hybrid';
+  const availableApplications = isCompilerAssessment
+    ? APPLICATIONS.filter(app => SUPPORTED_COMPILER_APPLICATION_IDS.includes(app.id))
+    : APPLICATIONS;
+  const selectedPracticalTypes = PRACTICAL_FILE_TYPES[selectedApplication]
+    ? [PRACTICAL_FILE_TYPES[selectedApplication]]
+    : [];
+  const practicalAccept = selectedPracticalTypes.map(type => type.extension).join(',') || '.py,.sql,.sas,.dax';
+  const practicalFormatLabel = selectedPracticalTypes.map(type => type.extension).join(', ') || '.py, .sql, .sas, or .dax';
+
+  useEffect(() => {
+    if (!isCompilerAssessment) return;
+    if (!SUPPORTED_COMPILER_APPLICATION_IDS.includes(selectedApplication)) {
+      setSelectedApplication('python');
+    }
+  }, [isCompilerAssessment, selectedApplication]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetch('/api/students')
+      .then(res => res.json())
+      .then(data => {
+        if (!cancelled && data.success) setStudents(data.students || []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    if (selectedCourses.length === 0 && courseOptions.length > 0) {
+      setSelectedCourses([courseOptions[0]]);
+    }
+    if (selectedBatches.length === 0 && batchOptions.length > 0) {
+      setSelectedBatches([batchOptions[0]]);
+    }
+  }, [courseOptions, batchOptions, selectedCourses.length, selectedBatches.length]);
 
   // Separate assessment files by type for selection
   const mcqFiles = (assessments || []).filter(a => a.assessmentType === 'mcq' || !a.assessmentType);
   const practicalFiles = (assessments || []).filter(a => a.assessmentType === 'compiler');
 
   // File Input Handlers
-  const handleMcqFileChange = (e) => {
+  const handleMcqFileChange = async (e) => {
     const file = e.target.files[0];
     if (file) {
-      setMcqUploadedFile({
-        name: file.name,
-        size: (file.size / 1024).toFixed(1) + ' KB',
-        rawFile: file
-      });
-      setMcqFileId(`uploaded-mcq-${Date.now()}`);
+      if (!file.name.toLowerCase().endsWith('.xlsx')) {
+        window.alert('Please upload MCQ questions in .xlsx format only.');
+        e.target.value = '';
+        return;
+      }
+      try {
+        const parsedAssessment = await parseAssessmentExcelFile(file);
+        const uploadedId = `uploaded-mcq-${Date.now()}`;
+        const uploadedAssessment = {
+          ...parsedAssessment,
+          id: uploadedId,
+          title: file.name.replace(/\.[^/.]+$/, ''),
+          questions: parsedAssessment.questions || []
+        };
+        setMcqParsedAssessment(uploadedAssessment);
+        setMcqUploadedFile({
+          name: file.name,
+          size: (file.size / 1024).toFixed(1) + ' KB',
+          questionCount: uploadedAssessment.questions.length,
+          rawFile: file
+        });
+        setMcqFileId(uploadedId);
+        addAssessment(uploadedAssessment);
+      } catch (err) {
+        window.alert(err.message || 'Unable to read the uploaded .xlsx question file.');
+        setMcqParsedAssessment(null);
+        setMcqUploadedFile(null);
+        setMcqFileId('');
+        e.target.value = '';
+      }
     }
   };
 
   const handlePracticalFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      setPracticalUploadedFile({
+    const files = Array.from(e.target.files || []);
+    const allowedExtensions = selectedPracticalTypes.map(type => type.extension);
+    const invalidFile = files.find(file => !allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext)));
+    if (invalidFile) {
+      window.alert(`"${invalidFile.name}" is not valid for the selected application. Allowed: ${practicalFormatLabel}`);
+      e.target.value = '';
+      return;
+    }
+    if (files.length > 0) {
+      setPracticalUploadedFiles(files.map(file => ({
         name: file.name,
         size: (file.size / 1024).toFixed(1) + ' KB',
         rawFile: file
-      });
-      setPracticalFileId(`uploaded-[#practical-${Date.now()}`);
+      })));
+      setPracticalFileId(`uploaded-practical-${Date.now()}`);
     }
+  };
+
+  const downloadTextFile = (fileName, content) => {
+    const blob = new Blob([content], { type: 'text/plain;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = fileName;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
+
+  const downloadPracticalSample = (appId) => {
+    const sample = PRACTICAL_FILE_TYPES[appId];
+    if (!sample) return;
+    downloadTextFile(sample.sampleFileName, sample.sampleContent);
   };
 
   // Compute End Date & Time based on start + duration
@@ -124,19 +328,9 @@ export const TestScheduler = () => {
     }
   };
 
-  // Top Application Filter Toggle
-  const toggleTopApplication = (appId) => {
-    if (appId === 'All Applications') {
-      setTopApplications(['All Applications']);
-      return;
-    }
-    const filtered = topApplications.filter(a => a !== 'All Applications');
-    if (filtered.includes(appId)) {
-      const next = filtered.filter(a => a !== appId);
-      setTopApplications(next.length > 0 ? next : ['All Applications']);
-    } else {
-      setTopApplications([...filtered, appId]);
-    }
+  const selectTopApplication = (appId) => {
+    setTopApplication(appId);
+    setTopAppDropdownOpen(false);
   };
 
   // Top Course Filter Toggle
@@ -170,13 +364,12 @@ export const TestScheduler = () => {
   };
 
   // Modal Toggle Handlers
-  const toggleApplication = (appId) => {
-    if (selectedApplications.includes(appId)) {
-      const next = selectedApplications.filter(a => a !== appId);
-      setSelectedApplications(next.length > 0 ? next : ['python']);
-    } else {
-      setSelectedApplications([...selectedApplications, appId]);
-    }
+  const selectApplication = (appId) => {
+    if (isCompilerAssessment && !SUPPORTED_COMPILER_APPLICATION_IDS.includes(appId)) return;
+    setSelectedApplication(appId);
+    setPracticalUploadedFiles([]);
+    setPracticalFileId('');
+    setAppDropdownOpen(false);
   };
 
   const toggleCourse = (cName) => {
@@ -187,7 +380,7 @@ export const TestScheduler = () => {
     const filtered = selectedCourses.filter(c => c !== 'All Courses');
     if (filtered.includes(cName)) {
       const next = filtered.filter(c => c !== cName);
-      setSelectedCourses(next.length > 0 ? next : ['AIML']);
+      setSelectedCourses(next.length > 0 ? next : courseOptions.slice(0, 1));
     } else {
       setSelectedCourses([...filtered, cName]);
     }
@@ -201,7 +394,7 @@ export const TestScheduler = () => {
     const filtered = selectedBatches.filter(b => b !== 'All Batches');
     if (filtered.includes(bId)) {
       const next = filtered.filter(b => b !== bId);
-      setSelectedBatches(next.length > 0 ? next : ['202601']);
+      setSelectedBatches(next.length > 0 ? next : batchOptions.slice(0, 1));
     } else {
       setSelectedBatches([...filtered, bId]);
     }
@@ -210,25 +403,35 @@ export const TestScheduler = () => {
   const handleCreateTest = (e) => {
     e.preventDefault();
 
-    const selectedMcqDoc = mcqFiles.find(a => a.id === mcqFileId);
+    const selectedMcqDoc = mcqSourceMode === 'upload'
+      ? mcqParsedAssessment
+      : mcqFiles.find(a => a.id === mcqFileId);
     const selectedPracticalDoc = practicalFiles.find(a => a.id === practicalFileId);
-    const appNames = selectedApplications.map(id => APPLICATIONS.find(a => a.id === id)?.name || id).join(', ');
+    const supportedApplication = isCompilerAssessment && !SUPPORTED_COMPILER_APPLICATION_IDS.includes(selectedApplication)
+      ? 'python'
+      : selectedApplication;
+    const appName = APPLICATIONS.find(a => a.id === supportedApplication)?.name || supportedApplication;
 
     const { startObj, endObj } = computeStartAndEndTimes();
 
     const mcqName = (mcqSourceMode === 'upload' && mcqUploadedFile) 
       ? mcqUploadedFile.name 
       : (selectedMcqDoc?.title || 'Default MCQ Question File');
+    const mcqQuestions = (assessmentType === 'mcq' || assessmentType === 'hybrid')
+      ? (selectedMcqDoc?.questions || [])
+      : [];
 
-    const practicalName = (practicalSourceMode === 'upload' && practicalUploadedFile) 
-      ? practicalUploadedFile.name 
+    const practicalName = (practicalSourceMode === 'upload' && practicalUploadedFiles.length > 0) 
+      ? practicalUploadedFiles.map(file => file.name).join(', ')
       : (selectedPracticalDoc?.title || 'Default Compiler Challenge File');
 
     const newTest = {
       id: `TEST-${Math.floor(1000 + Math.random() * 9000)}`,
-      title: testTitle || `Assessment (${appNames})`,
-      domains: selectedApplications,
-      domain: selectedApplications[0] || 'python',
+      title: testTitle || `Assessment (${appName})`,
+      domains: [supportedApplication],
+      domain: supportedApplication,
+      application: supportedApplication,
+      applications: [supportedApplication],
       assessmentType: assessmentType === 'hybrid' ? 'hybrid' : (assessmentType === 'practical' ? 'compiler' : 'mcq'),
       courses: selectedCourses,
       course: selectedCourses.join(', '),
@@ -240,6 +443,9 @@ export const TestScheduler = () => {
       scheduledFor: `${startDate} at ${startTime}`,
       mcqFileId: (assessmentType === 'mcq' || assessmentType === 'hybrid') ? (mcqFileId || 'mcq-custom') : null,
       mcqFileName: (assessmentType === 'mcq' || assessmentType === 'hybrid') ? mcqName : null,
+      mcqQuestions,
+      mcqQuestionCount: mcqQuestions.length,
+      servedMcqCount: mcqQuestions.length || undefined,
       practicalFileId: (assessmentType === 'practical' || assessmentType === 'hybrid') ? (practicalFileId || 'practical-custom') : null,
       practicalFileName: (assessmentType === 'practical' || assessmentType === 'hybrid') ? practicalName : null,
       status: 'Active'
@@ -253,11 +459,12 @@ export const TestScheduler = () => {
     setMcqFileId('');
     setPracticalFileId('');
     setMcqUploadedFile(null);
-    setPracticalUploadedFile(null);
+    setMcqParsedAssessment(null);
+    setPracticalUploadedFiles([]);
     setAssessmentType('mcq');
-    setSelectedApplications(['python']);
-    setSelectedCourses(['AIML']);
-    setSelectedBatches(['202601']);
+    setSelectedApplication('python');
+    setSelectedCourses(courseOptions.slice(0, 1));
+    setSelectedBatches(batchOptions.slice(0, 1));
   };
 
   // Filter scheduled tests
@@ -265,9 +472,8 @@ export const TestScheduler = () => {
     const stage = getTestStage(t);
 
     // 0. Application Filter
-    const appMatch = topApplications.includes('All Applications') || 
-      (t.domains && t.domains.some(d => topApplications.includes(d))) ||
-      topApplications.includes(t.domain);
+    const testApplication = (t.domains && t.domains.length > 0 ? t.domains[0] : t.domain) || '';
+    const appMatch = topApplication === 'All Applications' || testApplication === topApplication;
 
     // 1. Course Filter
     const courseMatch = topCourses.includes('All Courses') || 
@@ -288,7 +494,7 @@ export const TestScheduler = () => {
   });
 
   const resetTopFilters = () => {
-    setTopApplications(['All Applications']);
+    setTopApplication('All Applications');
     setTopCourses(['All Courses']);
     setTopBatches(['All Batches']);
     setFilterStatus('All Statuses');
@@ -301,7 +507,13 @@ export const TestScheduler = () => {
     window.open(targetUrl, '_blank');
   };
 
-  const hasTopFilters = !topApplications.includes('All Applications') || !topCourses.includes('All Courses') || !topBatches.includes('All Batches') || filterStatus !== 'All Statuses' || filterDate !== '';
+  const handleDeleteTest = (event, test) => {
+    event.stopPropagation();
+    const confirmed = window.confirm(`Delete "${test.title}"? This removes the test for all admins and students.`);
+    if (confirmed) deleteScheduledTest(test.id);
+  };
+
+  const hasTopFilters = topApplication !== 'All Applications' || !topCourses.includes('All Courses') || !topBatches.includes('All Batches') || filterStatus !== 'All Statuses' || filterDate !== '';
   const { startObj: previewStart, endObj: previewEnd } = computeStartAndEndTimes();
 
   return (
@@ -339,9 +551,9 @@ export const TestScheduler = () => {
               className="bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2 text-slate-800 font-semibold flex items-center gap-2 cursor-pointer hover:bg-slate-100 transition"
             >
               <span>
-                {topApplications.includes('All Applications')
+                {topApplication === 'All Applications'
                   ? 'All Applications'
-                  : topApplications.map(id => APPLICATIONS.find(a => a.id === id)?.name || id).join(', ')}
+                  : APPLICATIONS.find(a => a.id === topApplication)?.name || topApplication}
               </span>
               <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
             </button>
@@ -350,21 +562,21 @@ export const TestScheduler = () => {
               <div className="absolute left-0 mt-1 w-64 bg-white border border-slate-200 rounded-xl p-2 shadow-xl z-30 space-y-1 max-h-48 overflow-y-auto">
                 <button
                   type="button"
-                  onClick={() => toggleTopApplication('All Applications')}
+                  onClick={() => selectTopApplication('All Applications')}
                   className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition ${
-                    topApplications.includes('All Applications') ? 'bg-[#051f40] text-white' : 'hover:bg-slate-100 text-slate-700'
+                    topApplication === 'All Applications' ? 'bg-[#051f40] text-white' : 'hover:bg-slate-100 text-slate-700'
                   }`}
                 >
                   <span>All Applications</span>
                 </button>
 
                 {APPLICATIONS.map(app => {
-                  const isSelected = topApplications.includes(app.id);
+                  const isSelected = topApplication === app.id;
                   return (
                     <button
                       key={app.id}
                       type="button"
-                      onClick={() => toggleTopApplication(app.id)}
+                      onClick={() => selectTopApplication(app.id)}
                       className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition ${
                         isSelected ? 'bg-[#051f40] text-white' : 'hover:bg-slate-100 text-slate-700'
                       }`}
@@ -403,7 +615,7 @@ export const TestScheduler = () => {
                   <span>All Courses</span>
                 </button>
 
-                {COURSE_OPTIONS.map(c => {
+                {courseOptions.map(c => {
                   const isSelected = topCourses.includes(c);
                   return (
                     <button
@@ -543,15 +755,15 @@ export const TestScheduler = () => {
             const rawApps = (t.domains && t.domains.length > 0)
               ? t.domains
               : (t.domain ? [t.domain] : ['python']);
-            const displayApps = rawApps.map(dId => APPLICATIONS.find(a => a.id === dId)?.name || dId.toUpperCase());
+            const displayApps = rawApps.slice(0, 1).map(dId => APPLICATIONS.find(a => a.id === dId)?.name || dId.toUpperCase());
 
             const displayCourses = (t.courses && t.courses.length > 0)
               ? t.courses
-              : (t.course ? (Array.isArray(t.course) ? t.course : t.course.split(', ')) : ['AIML']);
+              : (t.course ? (Array.isArray(t.course) ? t.course : t.course.split(', ')) : []);
 
             const displayBatches = (t.targetBatches && t.targetBatches.length > 0)
               ? t.targetBatches
-              : (t.batch ? [t.batch] : ['202601']);
+              : (t.batch ? [t.batch] : []);
 
             return (
               <div 
@@ -572,19 +784,30 @@ export const TestScheduler = () => {
                       {isHybrid ? 'MCQ + Practical' : isPractical ? 'Practical Only' : 'MCQ Only'}
                     </span>
 
-                    {/* 3-Stage Lifecycle Badge: Scheduled -> Live -> Closed */}
-                    <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${
-                      stage === 'Live'
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                        : stage === 'Scheduled'
-                        ? 'bg-sky-50 text-sky-700 border-sky-300'
-                        : 'bg-slate-100 text-slate-600 border-slate-300'
-                    }`}>
-                      <span className={`w-1.5 h-1.5 rounded-full ${
-                        stage === 'Live' ? 'bg-emerald-500 animate-pulse' : stage === 'Scheduled' ? 'bg-sky-500' : 'bg-slate-400'
-                      }`} />
-                      {stage.toUpperCase()}
-                    </span>
+                    <div className="flex items-center gap-2">
+                      {/* 3-Stage Lifecycle Badge: Scheduled -> Live -> Closed */}
+                      <span className={`text-xs font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 ${
+                        stage === 'Live'
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                          : stage === 'Scheduled'
+                          ? 'bg-sky-50 text-sky-700 border-sky-300'
+                          : 'bg-slate-100 text-slate-600 border-slate-300'
+                      }`}>
+                        <span className={`w-1.5 h-1.5 rounded-full ${
+                          stage === 'Live' ? 'bg-emerald-500 animate-pulse' : stage === 'Scheduled' ? 'bg-sky-500' : 'bg-slate-400'
+                        }`} />
+                        {stage.toUpperCase()}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={(event) => handleDeleteTest(event, t)}
+                        className="w-7 h-7 inline-flex items-center justify-center rounded-lg border border-red-100 text-red-500 bg-red-50 hover:bg-red-100 hover:text-red-700 transition cursor-pointer"
+                        title="Delete test"
+                        aria-label={`Delete ${t.title}`}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Test Title with External Link Icon */}
@@ -751,10 +974,10 @@ export const TestScheduler = () => {
                 </div>
               </div>
 
-              {/* Field 2: Target Applications Dropdown (Multi-Select) */}
+              {/* Field 2: Target Application Dropdown */}
               <div className="relative">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  Target Applications ({selectedApplications.length} Selected)
+                  Target Application
                 </label>
                 
                 <button
@@ -767,20 +990,20 @@ export const TestScheduler = () => {
                   className="w-full bg-slate-50 border border-slate-200 rounded-xl px-3.5 py-2.5 text-xs text-slate-800 font-semibold flex items-center justify-between outline-none focus:border-[#ef5323] cursor-pointer"
                 >
                   <span className="truncate">
-                    {selectedApplications.map(id => APPLICATIONS.find(a => a.id === id)?.name || id).join(', ')}
+                    {availableApplications.find(a => a.id === selectedApplication)?.name || selectedApplication}
                   </span>
                   <ChevronDown className="w-4 h-4 text-slate-400 shrink-0" />
                 </button>
 
                 {appDropdownOpen && (
                   <div className="absolute left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl p-2 shadow-2xl z-30 space-y-1 max-h-48 overflow-y-auto">
-                    {APPLICATIONS.map(app => {
-                      const isSelected = selectedApplications.includes(app.id);
+                    {availableApplications.map(app => {
+                      const isSelected = selectedApplication === app.id;
                       return (
                         <button
                           key={app.id}
                           type="button"
-                          onClick={() => toggleApplication(app.id)}
+                          onClick={() => selectApplication(app.id)}
                           className={`w-full text-left px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center justify-between cursor-pointer transition ${
                             isSelected ? 'bg-[#051f40] text-white' : 'hover:bg-slate-100 text-slate-700'
                           }`}
@@ -841,31 +1064,41 @@ export const TestScheduler = () => {
                 {/* MCQ File Upload Section */}
                 {(assessmentType === 'mcq' || assessmentType === 'hybrid') && (
                   <div className="space-y-2">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <FileText className="w-3.5 h-3.5 text-[#ef5323]" />
                         <span>MCQ Question File</span>
-                      </label>                      
+                      </label>
                       
-                      <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
+                      <div className="flex items-center gap-2">
                         <button
                           type="button"
-                          onClick={() => setMcqSourceMode('upload')}
-                          className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
-                            mcqSourceMode === 'upload' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
-                          }`}
+                          onClick={downloadAssessmentExcelTemplate}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-orange-200 bg-orange-50 text-[#ef5323] text-[10px] font-bold hover:bg-orange-100 transition"
                         >
-                          Upload File
+                          <Download className="w-3 h-3" />
+                          <span>Sample XLSX</span>
                         </button>
-                        <button
-                          type="button"
-                          onClick={() => setMcqSourceMode('select')}
-                          className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
-                            mcqSourceMode === 'select' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          Select Existing
-                        </button>
+                        <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setMcqSourceMode('upload')}
+                            className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
+                              mcqSourceMode === 'upload' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            Upload File
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setMcqSourceMode('select')}
+                            className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
+                              mcqSourceMode === 'select' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            Select Existing
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -873,7 +1106,7 @@ export const TestScheduler = () => {
                       <div className="bg-white border-2 border-dashed border-slate-200 hover:border-[#ef5323] transition rounded-xl p-3.5 text-center relative cursor-pointer group">
                         <input
                           type="file"
-                          accept=".csv,.json,.xlsx,.pdf,.txt"
+                          accept=".xlsx"
                           onChange={handleMcqFileChange}
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                         />
@@ -883,7 +1116,9 @@ export const TestScheduler = () => {
                               <FileText className="w-5 h-5 text-[#ef5323] shrink-0" />
                               <div className="truncate">
                                 <p className="font-bold text-slate-800 truncate">{mcqUploadedFile.name}</p>
-                                <p className="text-[10px] text-slate-400">{mcqUploadedFile.size} • Ready for test</p>
+                                <p className="text-[10px] text-slate-400">
+                                  {mcqUploadedFile.size} • {mcqUploadedFile.questionCount || 0} questions parsed
+                                </p>
                               </div>
                             </div>
                             <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full shrink-0">
@@ -894,7 +1129,7 @@ export const TestScheduler = () => {
                           <div className="space-y-1">
                             <Upload className="w-5 h-5 text-slate-400 group-hover:text-[#ef5323] mx-auto transition" />
                             <p className="text-xs font-bold text-slate-700">Click or Drag & Drop MCQ File</p>
-                            <p className="text-[10px] text-slate-400">Upload .CSV, .JSON, .XLSX, .PDF, or .TXT file</p>
+                            <p className="text-[10px] text-slate-400">Upload .XLSX only</p>
                           </div>
                         )}
                       </div>
@@ -918,31 +1153,44 @@ export const TestScheduler = () => {
                 {/* Practical File Upload Section */}
                 {(assessmentType === 'practical' || assessmentType === 'hybrid') && (
                   <div className="space-y-2 pt-2 border-t border-slate-200/60">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Code2 className="w-3.5 h-3.5 text-purple-600" />
                         <span>Practical / Compiler File</span>
                       </label>
 
-                      <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
-                        <button
-                          type="button"
-                          onClick={() => setPracticalSourceMode('upload')}
-                          className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
-                            practicalSourceMode === 'upload' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          Upload File
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setPracticalSourceMode('select')}
-                          className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
-                            practicalSourceMode === 'select' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
-                          }`}
-                        >
-                          Select Existing
-                        </button>
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {selectedPracticalTypes.map(type => (
+                          <button
+                            key={type.extension}
+                            type="button"
+                            onClick={() => downloadPracticalSample(SUPPORTED_COMPILER_APPLICATION_IDS.find(appId => PRACTICAL_FILE_TYPES[appId]?.extension === type.extension))}
+                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-bold hover:bg-purple-100 transition"
+                          >
+                            <Download className="w-3 h-3" />
+                            <span>{type.label} Sample</span>
+                          </button>
+                        ))}
+                        <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
+                          <button
+                            type="button"
+                            onClick={() => setPracticalSourceMode('upload')}
+                            className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
+                              practicalSourceMode === 'upload' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            Upload File
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPracticalSourceMode('select')}
+                            className={`px-2 py-0.5 rounded-md font-bold cursor-pointer transition ${
+                              practicalSourceMode === 'select' ? 'bg-[#051f40] text-white' : 'text-slate-600 hover:bg-slate-100'
+                            }`}
+                          >
+                            Select Existing
+                          </button>
+                        </div>
                       </div>
                     </div>
 
@@ -950,17 +1198,18 @@ export const TestScheduler = () => {
                       <div className="bg-white border-2 border-dashed border-slate-200 hover:border-purple-500 transition rounded-xl p-3.5 text-center relative cursor-pointer group">
                         <input
                           type="file"
-                          accept=".json,.py,.sql,.zip,.pdf,.txt"
+                          accept={practicalAccept}
+                          multiple
                           onChange={handlePracticalFileChange}
                           className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
                         />
-                        {practicalUploadedFile ? (
+                        {practicalUploadedFiles.length > 0 ? (
                           <div className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 text-left truncate">
                               <Code2 className="w-5 h-5 text-purple-600 shrink-0" />
                               <div className="truncate">
-                                <p className="font-bold text-slate-800 truncate">{practicalUploadedFile.name}</p>
-                                <p className="text-[10px] text-slate-400">{practicalUploadedFile.size} • Ready for test</p>
+                                <p className="font-bold text-slate-800 truncate">{practicalUploadedFiles.map(file => file.name).join(', ')}</p>
+                                <p className="text-[10px] text-slate-400">{practicalUploadedFiles.length} file(s) • Ready for test</p>
                               </div>
                             </div>
                             <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2.5 py-0.5 rounded-full shrink-0">
@@ -971,7 +1220,7 @@ export const TestScheduler = () => {
                           <div className="space-y-1">
                             <Upload className="w-5 h-5 text-slate-400 group-hover:text-purple-600 mx-auto transition" />
                             <p className="text-xs font-bold text-slate-700">Click or Drag & Drop Practical File</p>
-                            <p className="text-[10px] text-slate-400">Upload .JSON, .PY, .SQL, .ZIP, .PDF, or .TXT file</p>
+                            <p className="text-[10px] text-slate-400">Upload {practicalFormatLabel} file(s)</p>
                           </div>
                         )}
                       </div>
@@ -1024,7 +1273,7 @@ export const TestScheduler = () => {
                       <span>All Courses</span>
                       {selectedCourses.includes('All Courses') && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
                     </button>
-                    {COURSE_OPTIONS.map(c => {
+                    {courseOptions.map(c => {
                       const isSelected = selectedCourses.includes(c);
                       return (
                         <button
@@ -1132,3 +1381,19 @@ export const TestScheduler = () => {
     </div>
   );
 };
+
+function buildUniqueOptions(records, fields) {
+  const values = new Set();
+  records.forEach(record => {
+    fields.forEach(field => {
+      toList(record?.[field]).forEach(value => values.add(value));
+    });
+  });
+  return Array.from(values).sort((a, b) => a.localeCompare(b, undefined, { numeric: true }));
+}
+
+function toList(value) {
+  if (Array.isArray(value)) return value.map(String).map(item => item.trim()).filter(Boolean);
+  if (!value) return [];
+  return String(value).split(',').map(item => item.trim()).filter(Boolean);
+}

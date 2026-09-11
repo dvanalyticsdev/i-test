@@ -5,6 +5,95 @@ import { INITIAL_ASSESSMENTS } from '../data/mockAssessmentRepository';
 import { queueExamRequest, flushExamRequests, pendingViolations, pendingDrafts, subscribeExamTransport } from '../utils/examTransport';
 
 const ExamContext = createContext();
+const SUPPORTED_COMPILER_DOMAINS = ['python', 'sql', 'sas', 'power_bi'];
+
+const DEFAULT_COMPILER_LABS = {
+  python: {
+    id: 'coding-py-1',
+    domain: 'python',
+    type: 'compiler',
+    title: 'Python Coding Task: Data Cleaning & Aggregation',
+    starterCode: `def process_sales(transactions):
+    # Return total positive revenue grouped by item.
+    result = {}
+    return result`
+  },
+  sql: {
+    id: 'coding-sql-1',
+    domain: 'sql',
+    type: 'compiler',
+    title: 'SQL Challenge: Department Salary Ranking',
+    starterCode: `SELECT
+    id,
+    name,
+    department,
+    salary,
+    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank
+FROM employees
+ORDER BY department, salary_rank;`
+  },
+  sas: {
+    id: 'coding-sas-1',
+    domain: 'sas',
+    type: 'compiler',
+    title: 'SAS Challenge: PROC MEANS Summary Statistics',
+    starterCode: `PROC MEANS DATA=WORK.SALES_SUMMARY MEAN STD MIN MAX;
+  CLASS Region;
+  VAR Sales Returns;
+RUN;`
+  },
+  power_bi: {
+    id: 'coding-pb-1',
+    domain: 'power_bi',
+    type: 'compiler',
+    title: 'Power BI DAX Challenge: YoY Revenue Growth',
+    starterCode: `YoY Growth % =
+DIVIDE(
+    [Total Revenue] - [PY Revenue],
+    [PY Revenue],
+    0
+)`
+  }
+};
+
+function normalizeCompilerDomains(testConfig = {}) {
+  const rawDomains = testConfig.domains || (testConfig.domain ? [testConfig.domain] : []);
+  const mapped = rawDomains.flatMap(domain => {
+    const value = String(domain || '').toLowerCase().trim();
+    if (!value) return [];
+    if (value === 'all applications' || value === 'all') return SUPPORTED_COMPILER_DOMAINS;
+    if (value.includes('python')) return ['python'];
+    if (value.includes('sql') || value.includes('postgres')) return ['sql'];
+    if (value.includes('sas')) return ['sas'];
+    if (value.includes('power') || value.includes('pbi')) return ['power_bi'];
+    return SUPPORTED_COMPILER_DOMAINS.includes(value) ? [value] : [];
+  });
+
+  const unique = Array.from(new Set(mapped));
+  return unique.length > 0 ? [unique[0]] : ['python'];
+}
+
+function buildCompilerLabs(testConfig = {}, questionBank = []) {
+  const selectedDomains = normalizeCompilerDomains(testConfig);
+  const uploadedLabs = questionBank.filter(q => q.type === 'compiler' && selectedDomains.includes(q.domain));
+  const uploadedByDomain = new Map(uploadedLabs.map(lab => [lab.domain, lab]));
+  return selectedDomains.map(domain => uploadedByDomain.get(domain) || DEFAULT_COMPILER_LABS[domain]).filter(Boolean);
+}
+
+function normalizeEmbeddedMcqs(questions = []) {
+  return questions
+    .filter(q => q && (q.question || q.questionText || q.title))
+    .map((q, index) => ({
+      ...q,
+      id: q.id || `scheduled-mcq-${index + 1}`,
+      type: 'mcq',
+      question: q.question || q.questionText || q.title,
+      options: Array.isArray(q.options) ? q.options : [q.optionA, q.optionB, q.optionC, q.optionD].filter(Boolean),
+      correctAnswer: q.correctAnswer ?? q.answer ?? 0,
+      explanation: q.explanation || ''
+    }))
+    .filter(q => q.question && q.options.length >= 2);
+}
 
 export const ExamProvider = ({ children }) => {
   // Assessments Repository (File/Document based assessment files)
@@ -28,71 +117,7 @@ export const ExamProvider = ({ children }) => {
   });
 
   // Scheduled Tests list (Admin manageable with type, course, and targetBatches)
-  const [scheduledTests, setScheduledTests] = useState(() => {
-    const saved = localStorage.getItem('i_test_scheduled_tests');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        return parsed.map(t => t.assessmentType === 'hybrid' ? { ...t, assessmentType: 'mcq' } : t);
-      } catch (e) {
-        // fallback
-      }
-    }
-    return [
-      {
-        id: 'TEST-COMP-01',
-        title: 'Hands-On Python & SQL Compiler Challenge (No MCQs)',
-        domain: 'python',
-        assessmentType: 'compiler', // 'compiler' | 'mcq'
-        course: 'AIML',
-        targetBatches: ['202601', '202101', '202102'],
-        durationMinutes: 45,
-        totalPoolSize: 100,
-        servedMcqCount: 0,
-        status: 'Active',
-        scheduledFor: '2026-09-07 (Live)'
-      },
-      {
-        id: 'TEST-PY-02',
-        title: 'Python & Data Engineering MCQ Assessment',
-        domain: 'python',
-        assessmentType: 'mcq',
-        course: 'FDE',
-        targetBatches: ['202601', '202103'],
-        durationMinutes: 45,
-        totalPoolSize: 100,
-        servedMcqCount: 30,
-        status: 'Active',
-        scheduledFor: '2026-09-07 (Live)'
-      },
-      {
-        id: 'TEST-SQL-03',
-        title: 'Advanced SQL Window Functions & Optimization MCQ Assessment',
-        domain: 'sql',
-        assessmentType: 'mcq',
-        course: 'APIDA',
-        targetBatches: ['202107', '202601'],
-        durationMinutes: 30,
-        totalPoolSize: 100,
-        servedMcqCount: 30,
-        status: 'Active',
-        scheduledFor: '2026-09-07 (Live)'
-      },
-      {
-        id: 'TEST-MULTI-04',
-        title: 'Full Stack Data & Analytics Skills MCQ Assessment (9 Domains)',
-        domain: 'excel_ai',
-        assessmentType: 'mcq',
-        course: 'All Courses',
-        targetBatches: ['All Batches'],
-        durationMinutes: 60,
-        totalPoolSize: 100,
-        servedMcqCount: 30,
-        status: 'Active',
-        scheduledFor: '2026-09-07 (Live)'
-      }
-    ];
-  });
+  const [scheduledTests, setScheduledTests] = useState([]);
 
   // Admin Submissions Repository
   const [submissions, setSubmissions] = useState(() => {
@@ -131,10 +156,6 @@ export const ExamProvider = ({ children }) => {
   }, [questionBank]);
 
   useEffect(() => {
-    localStorage.setItem('i_test_scheduled_tests', JSON.stringify(scheduledTests));
-  }, [scheduledTests]);
-
-  useEffect(() => {
     localStorage.setItem('i_test_submissions', JSON.stringify(submissions));
   }, [submissions]);
 
@@ -162,6 +183,19 @@ export const ExamProvider = ({ children }) => {
 
   useEffect(() => {
     let cancelled = false;
+    localStorage.removeItem('i_test_scheduled_tests');
+    const loadScheduledTests = async () => {
+      try {
+        const res = await fetch('/api/scheduled-tests', { cache: 'no-store' });
+        const data = await res.json();
+        if (!cancelled && data.success) setScheduledTests(data.tests || []);
+      } catch (e) {
+        if (!cancelled) setScheduledTests([]);
+      }
+    };
+    loadScheduledTests();
+    const scheduledTestsTimer = setInterval(loadScheduledTests, 15000);
+    window.addEventListener('focus', loadScheduledTests);
     fetch('/api/submissions').then(res => res.json()).then(data => {
       if (!cancelled && data.success) setSubmissions(data.submissions || []);
     }).catch(() => {});
@@ -190,7 +224,14 @@ export const ExamProvider = ({ children }) => {
     restore();
     const timer = setInterval(restore, 5000);
     window.addEventListener('online', restore);
-    return () => { cancelled = true; unsubscribe(); clearInterval(timer); window.removeEventListener('online', restore); };
+    return () => {
+      cancelled = true;
+      unsubscribe();
+      clearInterval(timer);
+      clearInterval(scheduledTestsTimer);
+      window.removeEventListener('online', restore);
+      window.removeEventListener('focus', loadScheduledTests);
+    };
   }, []);
 
   const pendingCount = activeSession ? pendingViolations(activeSession.sessionId).length : 0;
@@ -202,10 +243,15 @@ export const ExamProvider = ({ children }) => {
     const isCompilerOnly = assessmentType === 'compiler';
     const isMcqOnly = assessmentType === 'mcq';
 
-    const servedMcqsCount = isCompilerOnly ? 0 : (testConfig.servedMcqCount || 30);
-    const { mcqs, compilers } = getRandomizedQuestions(questionBank, servedMcqsCount);
+    const embeddedMcqs = normalizeEmbeddedMcqs(testConfig.mcqQuestions || testConfig.questions || []);
+    const servedMcqsCount = isCompilerOnly ? 0 : (testConfig.servedMcqCount || embeddedMcqs.length || 30);
+    const { mcqs } = embeddedMcqs.length > 0
+      ? { mcqs: embeddedMcqs.slice(0, servedMcqsCount) }
+      : getRandomizedQuestions(questionBank, servedMcqsCount);
     
-    const initialCompilers = isMcqOnly ? [] : (compilers || []);
+    const testDomains = testConfig.domains || (testConfig.domain ? [testConfig.domain] : []);
+    const sessionDomains = isMcqOnly ? testDomains.slice(0, 1) : normalizeCompilerDomains(testConfig);
+    const initialCompilers = isMcqOnly ? [] : buildCompilerLabs({ ...testConfig, domains: sessionDomains }, questionBank);
     const initialMcqs = isCompilerOnly ? [] : (mcqs || []);
 
     const sessionId = 'SESS-' + crypto.randomUUID();
@@ -214,13 +260,13 @@ export const ExamProvider = ({ children }) => {
       sessionId,
       testId: testConfig.id,
       testTitle: testConfig.title,
-      domains: testConfig.domains || (testConfig.domain ? [testConfig.domain] : []),
-      domain: testConfig.domain,
+      domains: sessionDomains,
+      domain: sessionDomains[0] || testConfig.domain,
       course: testConfig.course,
       courses: testConfig.courses,
       targetBatches: testConfig.targetBatches,
       application: testConfig.application,
-      applications: testConfig.applications,
+      applications: sessionDomains,
       assessmentType: assessmentType,
       studentId: studentUser.lmsId || studentUser.id,
       studentName: studentUser.name,
@@ -321,8 +367,46 @@ export const ExamProvider = ({ children }) => {
     setQuestionBank(prev => [...newList, ...prev]);
   };
 
-  const addScheduledTest = (testData) => {
-    setScheduledTests(prev => [testData, ...prev]);
+  const persistScheduledTest = async (testData) => {
+    const res = await fetch('/api/scheduled-tests', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(testData)
+    });
+    const data = await res.json();
+    if (!res.ok || !data.success) throw new Error(data.error || 'Failed to save scheduled test');
+    return data.test || testData;
+  };
+
+  const addScheduledTest = async (testData) => {
+    const optimisticTest = { ...testData, createdAt: testData.createdAt || new Date().toISOString() };
+    setScheduledTests(prev => [optimisticTest, ...prev.filter(test => test.id !== optimisticTest.id)]);
+    try {
+      const savedTest = await persistScheduledTest(optimisticTest);
+      setScheduledTests(prev => [savedTest, ...prev.filter(test => test.id !== savedTest.id)]);
+    } catch (e) {
+      console.warn('[ExamContext] Failed to save scheduled test on server:', e);
+    }
+  };
+
+  const deleteScheduledTest = async (testId) => {
+    localStorage.removeItem('i_test_scheduled_tests');
+    setScheduledTests(prev => prev.filter(test => test.id !== testId));
+    try {
+      const res = await fetch(`/api/scheduled-tests/${encodeURIComponent(testId)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (!res.ok || !data.success) throw new Error(data.error || 'Failed to delete scheduled test');
+      setScheduledTests(prev => prev.filter(test => test.id !== testId));
+    } catch (e) {
+      console.warn('[ExamContext] Failed to delete scheduled test on server:', e);
+      try {
+        const res = await fetch('/api/scheduled-tests', { cache: 'no-store' });
+        const data = await res.json();
+        if (data.success) setScheduledTests(data.tests || []);
+      } catch {
+        // Keep the optimistic removal visible until the next successful refresh.
+      }
+    }
   };
 
   const addAssessment = (newAssessment) => {
@@ -395,7 +479,8 @@ export const ExamProvider = ({ children }) => {
         submitExam,
         exitExam,
         bulkUploadQuestions,
-        addScheduledTest
+        addScheduledTest,
+        deleteScheduledTest
       }}
     >
       {children}

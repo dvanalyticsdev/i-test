@@ -14,7 +14,7 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
     }
   }, [starterCode]);
 
-  const mockDatabaseData = [
+  const sampleQueryData = [
     { id: 101, name: 'Sarah Jenkins', department: 'Engineering', salary: 115000, salary_rank: 1 },
     { id: 104, name: 'David Chen', department: 'Engineering', salary: 98000, salary_rank: 2 },
     { id: 108, name: 'Elena Rostova', department: 'Data Science', salary: 125000, salary_rank: 1 },
@@ -32,7 +32,8 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const runQuery = () => {
     setIsExecuting(true);
     setTimeout(() => {
-      setResults(mockDatabaseData);
+      const validation = validateSqlQuery(query);
+      setResults(validation.passed ? sampleQueryData : { error: validation.message });
       setIsExecuting(false);
     }, 500);
   };
@@ -107,14 +108,14 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
             <Table className="w-3.5 h-3.5 text-cyan-400" />
             <span>Query Results Output Grid</span>
           </div>
-          {results && (
+          {Array.isArray(results) && (
             <span className="text-emerald-400 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3" /> {results.length} rows returned (0.018s)
             </span>
           )}
         </div>
 
-        {results ? (
+        {Array.isArray(results) ? (
           <div className="overflow-x-auto border border-slate-800 rounded">
             <table className="w-full text-left font-mono text-[11px]">
               <thead className="bg-slate-800 text-slate-300 border-b border-slate-700">
@@ -139,6 +140,10 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
               </tbody>
             </table>
           </div>
+        ) : results?.error ? (
+          <div className="p-4 text-rose-300 bg-rose-950/30 rounded border border-rose-900 text-xs">
+            {results.error}
+          </div>
         ) : (
           <div className="p-4 text-center text-slate-500 italic bg-slate-950 rounded border border-slate-800 text-xs">
             Click "Run Code" to execute query against the employees database table.
@@ -148,3 +153,19 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
     </div>
   );
 };
+
+function validateSqlQuery(source) {
+  const sql = source.toLowerCase().replace(/\s+/g, ' ');
+  const checks = [
+    ['SELECT statement is required', sql.includes('select')],
+    ['Query must read from employees', sql.includes('from employees')],
+    ['salary_rank must be created', sql.includes('salary_rank')],
+    ['Use a ranking window function', sql.includes('dense_rank()') || sql.includes('rank()')],
+    ['Rank must partition by department', sql.includes('partition by department')],
+    ['Rank must order by salary descending', sql.includes('order by salary desc')]
+  ];
+  const failed = checks.find(([, pass]) => !pass);
+  return failed
+    ? { passed: false, message: `Validation failed: ${failed[0]}.` }
+    : { passed: true };
+}

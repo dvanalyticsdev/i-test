@@ -5,6 +5,32 @@ let restoredSessionId;
 try { restoredSessionId = JSON.parse(localStorage.getItem('i_test_active_session'))?.sessionId; } catch {}
 const navigationKey = id => 'i_test_departure_' + id;
 
+function hasVisibleCameraFrame(video) {
+  if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
+  try {
+    const canvas = document.createElement('canvas');
+    canvas.width = 80;
+    canvas.height = 60;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    if (!ctx) return null;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
+    let total = 0;
+    let totalSquares = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      const luminance = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
+      total += luminance;
+      totalSquares += luminance * luminance;
+    }
+    const count = pixels.length / 4;
+    const average = total / count;
+    const variance = totalSquares / count - average * average;
+    return average >= 18 && variance >= 6;
+  } catch {
+    return null;
+  }
+}
+
 export function useProctoring({ onViolation, isExamActive, sessionId }) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isTabFocused, setIsTabFocused] = useState(true);
@@ -13,8 +39,9 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
 
   // AV Device States
   const [mediaStream, setMediaStream] = useState(null);
-  const [cameraStatus, setCameraStatus] = useState('requesting'); // 'requesting' | 'granted' | 'denied' | 'unavailable' | 'disconnected'
+  const [cameraStatus, setCameraStatus] = useState('requesting'); // 'requesting' | 'granted' | 'denied' | 'unavailable' | 'disconnected' | 'blocked'
   const [microphoneStatus, setMicrophoneStatus] = useState('requesting'); // 'requesting' | 'granted' | 'denied' | 'unavailable' | 'disconnected'
+  const [faceStatus, setFaceStatus] = useState('checking'); // 'checking' | 'visible' | 'missing' | 'multiple' | 'unsupported'
   const [deviceErrorDetails, setDeviceErrorDetails] = useState('');
 
   // Stable references to prevent unnecessary re-render cascades
@@ -29,6 +56,10 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
   const mediaStreamRef = useRef(null);
   const mediaIncidentRef = useRef(null);
   const hasRequestedMediaRef = useRef(false);
+  const faceVideoRef = useRef(null);
+  const faceTimerRef = useRef(null);
+  const faceIncidentRef = useRef(null);
+  const blankCameraIncidentRef = useRef(null);
 
   const userEnteredFullscreenRef = useRef(false);
   const isSubmittingRef = useRef(false);
@@ -52,6 +83,87 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
   useEffect(() => {
     triggerViolationRef.current = triggerViolation;
   }, [triggerViolation]);
+
+  const stopFaceMonitoring = useCallback(() => {
+    if (faceTimerRef.current) {
+      clearInterval(faceTimerRef.current);
+      faceTimerRef.current = null;
+    }
+    if (faceVideoRef.current) {
+      faceVideoRef.current.pause();
+      faceVideoRef.current.srcObject = null;
+      faceVideoRef.current = null;
+    }
+    faceIncidentRef.current = null;
+    blankCameraIncidentRef.current = null;
+  }, []);
+
+  const startFaceMonitoring = useCallback((stream, generation) => {
+    stopFaceMonitoring();
+
+    const video = document.createElement('video');
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = stream;
+    faceVideoRef.current = video;
+
+    const detector = 'FaceDetector' in window
+      ? new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 })
+      : null;
+    if (!detector) setFaceStatus('unsupported');
+
+    const inspect = async () => {
+      if (!activeRef.current || generationRef.current !== generation || !faceVideoRef.current) return;
+      try {
+        if (video.readyState < 2) {
+          setFaceStatus('checking');
+          return;
+        }
+        const visibleFrame = hasVisibleCameraFrame(video);
+        if (visibleFrame === false) {
+          setCameraStatus('blocked');
+          setFaceStatus('missing');
+          if (!blankCameraIncidentRef.current) {
+            blankCameraIncidentRef.current = crypto.randomUUID();
+            triggerViolationRef.current('Camera video feed is blank or covered during active assessment', blankCameraIncidentRef.current);
+          }
+          return;
+        }
+        if (visibleFrame === true) {
+          setCameraStatus('granted');
+          blankCameraIncidentRef.current = null;
+        }
+        if (!detector) {
+          setFaceStatus('unsupported');
+          return;
+        }
+        const faces = await detector.detect(video);
+        if (!activeRef.current || generationRef.current !== generation) return;
+        if (faces.length === 1) {
+          setFaceStatus('visible');
+          faceIncidentRef.current = null;
+        } else if (faces.length === 0) {
+          setFaceStatus('missing');
+          if (!faceIncidentRef.current) {
+            faceIncidentRef.current = crypto.randomUUID();
+            triggerViolationRef.current('Candidate face not visible in camera frame', faceIncidentRef.current);
+          }
+        } else {
+          setFaceStatus('multiple');
+          if (!faceIncidentRef.current) {
+            faceIncidentRef.current = crypto.randomUUID();
+            triggerViolationRef.current('Multiple faces detected in camera frame', faceIncidentRef.current);
+          }
+        }
+      } catch {
+        setFaceStatus('unsupported');
+      }
+    };
+
+    video.play().catch(() => {});
+    faceTimerRef.current = setInterval(inspect, 2500);
+    setTimeout(inspect, 1200);
+  }, [stopFaceMonitoring]);
 
   // Request & Monitor Camera and Microphone Permissions via getUserMedia (executed ONCE)
   const initMediaDevices = useCallback(async (forceRetry = false) => {
@@ -94,6 +206,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       setMediaStream(stream);
       setCameraStatus('granted');
       setMicrophoneStatus('granted');
+      startFaceMonitoring(stream, generation);
       setDeviceErrorDetails('');
 
       // Listen for hardware disconnects on tracks
@@ -118,20 +231,23 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
         setCameraStatus('denied');
         setMicrophoneStatus('denied');
+        setFaceStatus('unsupported');
         setDeviceErrorDetails('Camera or Microphone access was denied in browser permission dialog.');
       } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
         setCameraStatus('unavailable');
         setMicrophoneStatus('unavailable');
+        setFaceStatus('unsupported');
         setDeviceErrorDetails('No physical camera or microphone detected on this system.');
       } else {
         setCameraStatus('unavailable');
         setMicrophoneStatus('unavailable');
+        setFaceStatus('unsupported');
         setDeviceErrorDetails(err.message || 'Media hardware unavailable');
       }
     } finally {
       if (generation === generationRef.current) permissionPendingRef.current = false;
     }
-  }, []);
+  }, [startFaceMonitoring]);
 
   useEffect(() => {
     initMediaDevicesRef.current = initMediaDevices;
@@ -144,6 +260,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
         mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
+        stopFaceMonitoring();
       }
       hasRequestedMediaRef.current = false;
       return;
@@ -215,19 +332,22 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
     // Multi-Monitor check
     const checkDisplaySetup = () => {
       try {
+        let extended = false;
         if ('getScreenDetails' in window || 'isExtended' in window.screen) {
           if (window.screen.isExtended) {
-            setIsMultiMonitorDetected(true);
+            extended = true;
           }
         }
         if (window.screen && window.screen.availWidth > window.screen.width * 1.5) {
-          setIsMultiMonitorDetected(true);
+          extended = true;
         }
+        setIsMultiMonitorDetected(extended);
       } catch (e) {
         // Safe fallback
       }
     };
     checkDisplaySetup();
+    const displayTimer = setInterval(checkDisplaySetup, 2000);
 
     const departureId = () => {
       const id = incidentsRef.current.leave();
@@ -400,6 +520,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       document.removeEventListener('contextmenu', handleContextMenu);
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
+      clearInterval(displayTimer);
 
       if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
@@ -409,11 +530,12 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
         mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
+        stopFaceMonitoring();
       }
       if (mediaTimer) clearTimeout(mediaTimer);
       hasRequestedMediaRef.current = false;
     };
-  }, [isExamActive, sessionId]);
+  }, [isExamActive, sessionId, stopFaceMonitoring]);
 
   const markSubmitting = useCallback(() => {
     isSubmittingRef.current = true;
@@ -452,6 +574,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
     mediaStream,
     cameraStatus,
     microphoneStatus,
+    faceStatus,
     deviceErrorDetails,
     markSubmitting,
     resumeProctoring: () => { isSubmittingRef.current = false; },

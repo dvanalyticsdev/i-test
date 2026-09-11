@@ -32,7 +32,8 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const evaluateDax = () => {
     setIsEvaluating(true);
     setTimeout(() => {
-      setChartData(sampleVizData);
+      const validation = validateDaxMeasure(daxCode);
+      setChartData(validation.passed ? sampleVizData : { error: validation.message });
       setIsEvaluating(false);
     }, 500);
   };
@@ -106,14 +107,14 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
           <span className="flex items-center gap-1">
             <Sparkles className="w-3.5 h-3.5 text-amber-400"/> Power BI Visual Output (Interactive Canvas)
           </span>
-          {chartData && (
+          {Array.isArray(chartData) && (
             <span className="text-emerald-400 flex items-center gap-1">
               <CheckCircle2 className="w-3 h-3"/> VertiPaq Calculated
             </span>
           )}
         </div>
 
-        {chartData ? (
+        {Array.isArray(chartData) ? (
           <div className="h-44 w-full pt-1">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData}>
@@ -126,6 +127,10 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        ) : chartData?.error ? (
+          <div className="p-4 text-rose-300 bg-rose-950/30 rounded border border-rose-900 text-xs">
+            {chartData.error}
+          </div>
         ) : (
           <div className="p-4 text-center text-slate-500 italic bg-slate-950 rounded border border-slate-800 text-xs">
             Click "Run Code" to compile DAX measure and render interactive report visual.
@@ -135,3 +140,18 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
     </div>
   );
 };
+
+function validateDaxMeasure(source) {
+  const dax = source.toLowerCase().replace(/\s+/g, ' ');
+  const checks = [
+    ['Define a YoY growth measure', dax.includes('yoy') && dax.includes('%')],
+    ['Use DIVIDE() for safe division', dax.includes('divide(')],
+    ['Reference Total Revenue', dax.includes('[total revenue]')],
+    ['Reference PY Revenue', dax.includes('[py revenue]')],
+    ['Subtract PY Revenue from Total Revenue', dax.includes('[total revenue] - [py revenue]')]
+  ];
+  const failed = checks.find(([, pass]) => !pass);
+  return failed
+    ? { passed: false, message: `Validation failed: ${failed[0]}.` }
+    : { passed: true };
+}

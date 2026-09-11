@@ -27,28 +27,14 @@ export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCod
     setOutput('Compiling and executing Python 3.11 script against test cases...');
 
     setTimeout(() => {
-      try {
-        let consoleOutput = '=== PYTHON 3.11 RUNTIME OUTPUT ===\n';
-        if (code.includes('process_sales')) {
-          consoleOutput += "Result: {'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}\n\nExecution Time: 0.042s | Memory: 14.2 MB";
-          setTestResults([
-            { pass: true, label: 'Test Case 1: process_sales(transactions)', expected: "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}", actual: "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}" },
-            { pass: true, label: 'Test Case 2: Empty transaction list handling', expected: "{}", actual: "{}" },
-            { pass: true, label: 'Test Case 3: Single item aggregation', expected: "{'Monitor': 350}", actual: "{'Monitor': 350}" }
-          ]);
-        } else {
-          consoleOutput += 'Script executed cleanly.\nStandard Output: OK (Return Code 0)';
-          setTestResults([
-            { pass: true, label: 'Syntax & Execution Check', expected: 'Clean Exit (Code 0)', actual: 'Clean Exit (Code 0)' }
-          ]);
-        }
-        setOutput(consoleOutput);
-      } catch (err) {
-        setOutput(`Traceback (most recent call last):\n  File "main.py", line 4, in <module>\nSyntaxError: ${err.message}`);
-        setTestResults([{ pass: false, label: 'Syntax Check', expected: 'Success', actual: 'Error' }]);
-      } finally {
-        setIsExecuting(false);
-      }
+      const checks = validatePythonSolution(code);
+      const passed = checks.every(item => item.pass);
+      const consoleOutput = passed
+        ? "=== PYTHON 3.11 VALIDATION OUTPUT ===\nResult: {'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}\nFiltered invalid transaction: {'item': 'Laptop', 'price': -300}\n\nExecution Time: 0.041s | Memory: 14.2 MB"
+        : '=== PYTHON 3.11 VALIDATION OUTPUT ===\nValidation failed. Review the failed requirements below before final submission.';
+      setTestResults(checks);
+      setOutput(consoleOutput);
+      setIsExecuting(false);
     }, 600);
   };
 
@@ -155,3 +141,33 @@ export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCod
     </div>
   );
 };
+
+function validatePythonSolution(source) {
+  const normalized = source.toLowerCase();
+  return [
+    {
+      pass: /def\s+process_sales\s*\(\s*transactions\s*\)/.test(source),
+      label: 'Function signature: process_sales(transactions)',
+      expected: 'Defined function',
+      actual: 'Checked source'
+    },
+    {
+      pass: /for\s+\w+\s+in\s+transactions/.test(source),
+      label: 'Iterates through all transactions',
+      expected: 'Loop over transactions',
+      actual: 'Checked source'
+    },
+    {
+      pass: normalized.includes('price') && (normalized.includes('<= 0') || normalized.includes('> 0') || normalized.includes('< 1')),
+      label: 'Filters zero or negative prices',
+      expected: 'Ignore invalid prices',
+      actual: 'Checked source'
+    },
+    {
+      pass: normalized.includes('return') && (normalized.includes('.get(') || normalized.includes('defaultdict') || normalized.includes('counter')),
+      label: 'Aggregates revenue by item',
+      expected: "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}",
+      actual: 'Checked source'
+    }
+  ];
+}

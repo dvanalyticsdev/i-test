@@ -7,51 +7,41 @@ export const LoginView = ({ isAdminMode = false, navigateTo }) => {
 
   // Student Form states
   const [lmsId, setLmsId] = useState('');
-  const [studentName, setStudentName] = useState('');
-  const [mobileNo, setMobileNo] = useState('');
-  const [studentCourse, setStudentCourse] = useState('AIML');
-  const [studentBatch, setStudentBatch] = useState('202601');
 
   // Admin Form states
-  const [adminEmail, setAdminEmail] = useState('admin@platform.com');
-  const [adminPassword, setAdminPassword] = useState('admin123');
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
 
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleStudentSubmit = (e) => {
+  const handleStudentSubmit = async (e) => {
     e.preventDefault();
     if (!lmsId.trim()) {
       setErrorMessage('Please enter your LMS ID.');
       return;
     }
-    if (!studentName.trim()) {
-      setErrorMessage('Please enter your Name.');
-      return;
-    }
+
     setErrorMessage('');
-    loginStudent(lmsId.trim(), studentName.trim(), studentCourse, studentBatch, mobileNo.trim());
+    setIsSubmitting(true);
+    const res = await loginStudent(lmsId.trim());
+    setIsSubmitting(false);
+    if (!res.success) setErrorMessage(res.message);
   };
 
-  const handleAdminSubmit = (e) => {
+  const handleAdminSubmit = async (e) => {
     e.preventDefault();
     if (!adminEmail.trim() || !adminPassword.trim()) {
       setErrorMessage('Please enter both admin email and password.');
       return;
     }
     setErrorMessage('');
-    const res = loginAdmin(adminEmail.trim(), adminPassword.trim());
+    setIsSubmitting(true);
+    const res = await loginAdmin(adminEmail.trim(), adminPassword.trim());
+    setIsSubmitting(false);
     if (!res.success) {
       setErrorMessage(res.message);
     }
-  };
-
-  const fillDemo = (id, name, course, batch, phone) => {
-    setLmsId(id);
-    setStudentName(name);
-    setStudentCourse(course);
-    setStudentBatch(batch);
-    setMobileNo(phone);
-    setErrorMessage('');
   };
 
   const handleSwitchMode = (targetPath) => {
@@ -156,36 +146,7 @@ export const LoginView = ({ isAdminMode = false, navigateTo }) => {
                     required
                     value={lmsId}
                     onChange={(e) => setLmsId(e.target.value)}
-                    placeholder="e.g. STU-99214"
-                    className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 font-medium text-sm rounded-xl border border-slate-200 focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 outline-none transition-all"
-                  />
-                </div>
-
-                {/* Field 2: Full Name */}
-                <div>
-                  <label className="block text-xs font-bold text-[#051f40] uppercase tracking-wider mb-1.5">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={studentName}
-                    onChange={(e) => setStudentName(e.target.value)}
-                    placeholder="e.g. Alex Mercer"
-                    className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 font-medium text-sm rounded-xl border border-slate-200 focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 outline-none transition-all"
-                  />
-                </div>
-
-                {/* Field 3: Mobile Number */}
-                <div>
-                  <label className="block text-xs font-bold text-[#051f40] uppercase tracking-wider mb-1.5">
-                    Mobile Number
-                  </label>
-                  <input
-                    type="tel"
-                    value={mobileNo}
-                    onChange={(e) => setMobileNo(e.target.value)}
-                    placeholder="e.g. 9876543210"
+                    placeholder="Enter your LMS ID"
                     className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 font-medium text-sm rounded-xl border border-slate-200 focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 outline-none transition-all"
                   />
                 </div>
@@ -193,33 +154,11 @@ export const LoginView = ({ isAdminMode = false, navigateTo }) => {
                 {/* Login Button */}
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full mt-2 py-3.5 px-6 bg-[#051f40] hover:bg-[#1b2a60] active:bg-[#031428] text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 text-center cursor-pointer"
                 >
-                  LOGIN
+                  {isSubmitting ? 'VERIFYING...' : 'LOGIN'}
                 </button>
-
-                {/* Quick Fill Pills */}
-                <div className="pt-4 border-t border-slate-100 mt-5">
-                  <div className="text-xs text-slate-400 font-medium mb-2">
-                    Quick Fill Demo:
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => fillDemo('STU-99214', 'Alex Mercer', 'AIML', '202601', '9876543210')}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-orange-50 hover:text-[#ef5323] hover:border-orange-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition cursor-pointer"
-                    >
-                      Alex Mercer (AIML)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => fillDemo('STU-48102', 'Jordan Vance', 'FDE', '202101', '9123456780')}
-                      className="px-3 py-1.5 bg-slate-100 hover:bg-orange-50 hover:text-[#ef5323] hover:border-orange-200 text-slate-700 text-xs font-semibold rounded-lg border border-slate-200 transition cursor-pointer"
-                    >
-                      Jordan Vance (FDE)
-                    </button>
-                  </div>
-                </div>
               </form>
             ) : (
               /* Admin Login Form */
@@ -227,14 +166,14 @@ export const LoginView = ({ isAdminMode = false, navigateTo }) => {
                 {/* Admin Email */}
                 <div>
                   <label className="block text-xs font-bold text-[#051f40] uppercase tracking-wider mb-1.5">
-                    Admin Email
+                    Admin ID
                   </label>
                   <input
-                    type="email"
+                    type="text"
                     required
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="admin@platform.com"
+                    placeholder="Admin ID"
                     className="w-full px-4 py-3 bg-slate-50 hover:bg-slate-100/80 focus:bg-white text-slate-900 font-medium text-sm rounded-xl border border-slate-200 focus:border-[#ef5323] focus:ring-2 focus:ring-[#ef5323]/15 outline-none transition-all"
                   />
                 </div>
@@ -257,25 +196,12 @@ export const LoginView = ({ isAdminMode = false, navigateTo }) => {
                 {/* Submit Admin Button */}
                 <button
                   type="submit"
+                  disabled={isSubmitting}
                   className="w-full mt-2 py-3.5 px-6 bg-[#051f40] hover:bg-[#1b2a60] active:bg-[#031428] text-white font-bold text-sm uppercase tracking-wider rounded-xl shadow-md hover:shadow-lg transition-all duration-150 transform hover:-translate-y-0.5 active:translate-y-0 text-center cursor-pointer"
                 >
-                  LOGIN
+                  {isSubmitting ? 'VERIFYING...' : 'LOGIN'}
                 </button>
 
-                {/* Quick Fill Admin Credentials */}
-                <div className="pt-4 border-t border-slate-100 mt-5 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setAdminEmail('admin@platform.com');
-                      setAdminPassword('admin123');
-                      setErrorMessage('');
-                    }}
-                    className="text-xs text-[#051f40] hover:text-[#ef5323] font-semibold underline underline-offset-2 cursor-pointer transition"
-                  >
-                    Auto-fill Admin Credentials
-                  </button>
-                </div>
               </form>
             )}
           </div>

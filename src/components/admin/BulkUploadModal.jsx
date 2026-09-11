@@ -71,7 +71,7 @@ export const BulkUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
 
       if (activeTab === 'excel') {
         if (!selectedFile) {
-          throw new Error('Please select an Excel (.xlsx) or CSV (.csv) file to upload.');
+          throw new Error('Please select an Excel (.xlsx) file to upload.');
         }
         newAssessment = await parseAssessmentExcelFile(selectedFile);
       } else if (activeTab === 'pdf') {
@@ -187,7 +187,7 @@ export const BulkUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
         </div>
 
         <p className="text-xs text-slate-600 mb-3">
-          Import complete assessments with question sets, choices, and verified answer keys from <strong>Excel (.xlsx / .csv)</strong>, <strong>PDF</strong>, or <strong>JSON</strong> files.
+          Import complete assessments with question sets, choices, and verified answer keys from <strong>Excel (.xlsx)</strong>, <strong>PDF</strong>, or <strong>JSON</strong> files.
         </p>
 
         {/* Format Selector Tabs */}
@@ -202,7 +202,7 @@ export const BulkUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
             }`}
           >
             <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
-            <span>Excel / CSV</span>
+            <span>Excel XLSX</span>
           </button>
 
           <button
@@ -232,14 +232,14 @@ export const BulkUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
           </button>
         </div>
 
-        {/* TAB 1: EXCEL / CSV */}
+        {/* TAB 1: EXCEL XLSX */}
         {activeTab === 'excel' && (
           <div className="space-y-3 flex-1 flex flex-col justify-center">
             {/* File Upload / Drop Area */}
             <input 
               ref={fileInputRef}
               type="file" 
-              accept=".xlsx, .xls, .csv" 
+              accept=".xlsx" 
               className="hidden" 
               onChange={handleFileChange} 
             />
@@ -266,10 +266,10 @@ export const BulkUploadModal = ({ isOpen, onClose, onUploadSuccess }) => {
                 <>
                   <Upload className="w-9 h-9 text-slate-400 group-hover:text-emerald-600 transition" />
                   <span className="text-xs font-bold text-slate-800">
-                    Click to select or drag & drop Excel (.xlsx, .csv) spreadsheet
+                    Click to select or drag & drop Excel (.xlsx) spreadsheet
                   </span>
                   <span className="text-[11px] text-slate-500">
-                    Automatically extracts questions, Options A-D, answers, domain & course
+                    Automatically extracts questions, Options A-D, answers, and explanations
                   </span>
                 </>
               )}

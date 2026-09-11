@@ -3,7 +3,7 @@ import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
 /**
- * Downloads a sample Excel / CSV assessment template.
+ * Downloads a sample Excel assessment template.
  */
 export const downloadAssessmentExcelTemplate = () => {
   const sampleData = [
@@ -14,10 +14,7 @@ export const downloadAssessmentExcelTemplate = () => {
       'Option C': 'map()',
       'Option D': 'range()',
       'Correct Answer': 'A',
-      'Explanation': 'enumerate() adds a counter to an iterable and returns it as an enumerate object.',
-      'Domain': 'python',
-      'Course': 'AIML',
-      'Batch': '202601'
+      'Explanation': 'enumerate() adds a counter to an iterable and returns it as an enumerate object.'
     },
     {
       'Question': 'Which SQL clause is used to filter groups created by GROUP BY?',
@@ -26,10 +23,7 @@ export const downloadAssessmentExcelTemplate = () => {
       'Option C': 'QUALIFY',
       'Option D': 'ORDER BY',
       'Correct Answer': 'B',
-      'Explanation': 'HAVING filters aggregate row groups, whereas WHERE filters individual rows prior to grouping.',
-      'Domain': 'sql',
-      'Course': 'APIDA',
-      'Batch': '202601'
+      'Explanation': 'HAVING filters aggregate row groups, whereas WHERE filters individual rows prior to grouping.'
     },
     {
       'Question': 'Which DAX function calculates an expression in a modified filter context in Power BI?',
@@ -38,10 +32,7 @@ export const downloadAssessmentExcelTemplate = () => {
       'Option C': 'ALL()',
       'Option D': 'SUMMARIZE()',
       'Correct Answer': 'B',
-      'Explanation': 'CALCULATE is the only DAX function capable of overriding and modifying filter contexts.',
-      'Domain': 'power_bi',
-      'Course': 'APIDS',
-      'Batch': '202601'
+      'Explanation': 'CALCULATE is the only DAX function capable of overriding and modifying filter contexts.'
     }
   ];
 
@@ -57,17 +48,14 @@ export const downloadAssessmentExcelTemplate = () => {
     { wch: 25 }, // Option C
     { wch: 25 }, // Option D
     { wch: 15 }, // Correct Answer
-    { wch: 50 }, // Explanation
-    { wch: 15 }, // Domain
-    { wch: 12 }, // Course
-    { wch: 12 }  // Batch
+    { wch: 50 }  // Explanation
   ];
 
   XLSX.writeFile(wb, 'Assessment_Upload_Template.xlsx');
 };
 
 /**
- * Parses an Excel or CSV file buffer and returns structured assessment and questions.
+ * Parses an Excel file buffer and returns structured assessment and questions.
  */
 export const parseAssessmentExcelFile = async (file) => {
   return new Promise((resolve, reject) => {
@@ -82,14 +70,10 @@ export const parseAssessmentExcelFile = async (file) => {
         const rows = XLSX.utils.sheet_to_json(worksheet, { defval: '' });
 
         if (!rows || rows.length === 0) {
-          throw new Error('The uploaded Excel/CSV file is empty or does not contain any valid rows.');
+          throw new Error('The uploaded Excel file is empty or does not contain any valid rows.');
         }
 
         const questions = [];
-        let detectedDomain = 'python';
-        let detectedCourse = 'AIML';
-        let detectedBatches = new Set();
-
         rows.forEach((row, idx) => {
           // Normalize column headers case-insensitively
           const keys = Object.keys(row);
@@ -107,13 +91,6 @@ export const parseAssessmentExcelFile = async (file) => {
           const optD = getVal('option\\s*d') || 'Option D';
           const rawCorrect = getVal('correct') || 'A';
           const explanation = getVal('explanation') || 'Verified standard assessment question.';
-          const domain = getVal('domain') || 'python';
-          const course = getVal('course') || 'AIML';
-          const batch = getVal('batch') || '202601';
-
-          detectedDomain = domain.toLowerCase().replace(/\s+/g, '_');
-          if (course) detectedCourse = course;
-          if (batch) detectedBatches.add(batch);
 
           // Determine correct index (0-3)
           let correctIdx = 0;
@@ -149,9 +126,9 @@ export const parseAssessmentExcelFile = async (file) => {
           id: `ASM-XL-${Date.now().toString().slice(-4)}`,
           title: assessmentTitle,
           assessmentType: 'mcq',
-          domain: detectedDomain,
-          course: detectedCourse,
-          targetBatches: detectedBatches.size > 0 ? Array.from(detectedBatches) : ['202601', 'All Batches'],
+          domain: 'python',
+          course: 'All Courses',
+          targetBatches: ['All Batches'],
           dateCreated: new Date().toISOString().split('T')[0],
           status: 'Published',
           durationMinutes: Math.max(15, questions.length * 2),

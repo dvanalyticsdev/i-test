@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { QuestionBankManager } from './QuestionBankManager';
 import { TestScheduler } from './TestScheduler';
 import { StudentSubmissions } from './StudentSubmissions';
+import { StudentSyncPanel } from './StudentSyncPanel';
 import { 
   Database, 
   Calendar, 
@@ -36,6 +37,12 @@ export const AdminDashboard = () => {
       label: 'Student Submissions',
       shortLabel: 'Submissions',
       icon: Users
+    },
+    {
+      id: 'students',
+      label: 'Student Sync',
+      shortLabel: 'Students',
+      icon: Database
     }
   ];
 
@@ -190,6 +197,7 @@ export const AdminDashboard = () => {
           {activeTab === 'questions' && <QuestionBankManager />}
           {activeTab === 'scheduler' && <TestScheduler />}
           {activeTab === 'submissions' && <StudentSubmissions />}
+          {activeTab === 'students' && <StudentSyncPanel />}
         </main>
       </div>
     </div>

@@ -10,19 +10,15 @@ import { PythonCompiler } from '../compilers/PythonCompiler';
 import { SqlCompiler } from '../compilers/SqlCompiler';
 import { PowerBICompiler } from '../compilers/PowerBICompiler';
 import { SasCompiler } from '../compilers/SasCompiler';
-import { ExcelAiCompiler } from '../compilers/ExcelAiCompiler';
 import { 
   Clock, 
   CheckCircle2, 
   Code2, 
   FileText, 
   AlertCircle, 
-  Sparkles, 
   Database, 
   BarChart3, 
   Binary, 
-  FileSpreadsheet, 
-  HelpCircle,
   Terminal,
   Bookmark,
   Send
@@ -138,31 +134,10 @@ RUN;`,
       'Standard SAS 9.4 syntax with semicolons terminating each statement.',
       'Include both Sales and Returns variables in VAR clause.'
     ]
-  },
-  excel_ai: {
-    id: 'excel_ai',
-    key: 'coding-excel-1',
-    labNum: 'LAB 5',
-    domain: 'Excel AI Grid',
-    icon: FileSpreadsheet,
-    badgeColor: 'emerald',
-    title: 'Dynamic Cross-Table Lookup & Bulk Tiered Discount Logic',
-    difficulty: 'Intermediate',
-    score: '20 Pts',
-    scenario: 'Automate invoice pricing calculations by dynamically matching product unit prices and applying tiered discounts based on order volume.',
-    instructions: [
-      'Write an Excel dynamic array formula for Column D (Calculated Revenue).',
-      'Use XLOOKUP(A2, Products[ID], Products[Price]) multiplied by order quantity B2.',
-      'If quantity B2 is greater than 100 units, apply a 15% bulk discount (* 0.85).'
-    ],
-    sampleInput: `A2: Product ID, B2: Quantity, Products table with ID and Price`,
-    sampleOutput: `=IF(B2>100, (XLOOKUP(A2, Products[ID], Products[Price]) * B2) * 0.85, XLOOKUP(A2, Products[ID], Products[Price]) * B2)`,
-    constraints: [
-      'Compatible with Office 365 dynamic calculation.',
-      'Handle zero quantity and unlisted product IDs without crashing.'
-    ]
   }
 };
+
+const SUPPORTED_COMPILER_DOMAINS = ['python', 'sql', 'sas', 'power_bi'];
 
 export const ExamEnvironment = () => {
   const { user } = useAuth();
@@ -181,7 +156,7 @@ export const ExamEnvironment = () => {
   } = useExam();
 
   const [confirmSubmitOpen, setConfirmSubmitOpen] = useState(false);
-  const [activeCompilerDomain, setActiveCompilerDomain] = useState('python'); // 'python' | 'sql' | 'power_bi' | 'sas' | 'excel_ai'
+  const [activeCompilerDomain, setActiveCompilerDomain] = useState('python');
 
   // Hook up Proctoring Guard with stable memoized handlers
   const handleViolation = useCallback((reason, eventId) => {
@@ -192,9 +167,11 @@ export const ExamEnvironment = () => {
   const { 
     isFullscreen, 
     requestFullscreen, 
+    isMultiMonitorDetected,
     mediaStream, 
     cameraStatus, 
     microphoneStatus, 
+    faceStatus,
     deviceErrorDetails, 
     markSubmitting,
     resumeProctoring,
@@ -207,6 +184,7 @@ export const ExamEnvironment = () => {
 
   // Timer countdown effect
   const [secondsLeft, setSecondsLeft] = useState(activeSession?.timeRemainingSeconds || 2700);
+  const [displayExitCountdown, setDisplayExitCountdown] = useState(null);
 
   const submitRef = useRef(null);
   const submitOnce = async () => {
@@ -233,6 +211,30 @@ export const ExamEnvironment = () => {
     return () => clearInterval(timer);
   }, [activeSession?.sessionId, activeSession?.isFinished, activeSession?.startedAt, activeSession?.durationMinutes, sessionReady, assessmentLocked]);
 
+  useEffect(() => {
+    if (!activeSession || activeSession.isFinished || !sessionReady || assessmentLocked || !isMultiMonitorDetected) {
+      setDisplayExitCountdown(null);
+      return;
+    }
+
+    setDisplayExitCountdown(10);
+    const tick = setInterval(() => {
+      setDisplayExitCountdown(prev => (prev === null ? null : Math.max(0, prev - 1)));
+    }, 1000);
+    const terminate = setTimeout(() => {
+      const baseId = crypto.randomUUID();
+      registerProctorViolation('Extended display / HDMI monitor detected during active assessment', `${baseId}-display`);
+      setTimeout(() => {
+        registerProctorViolation('Assessment terminated because extended display remained connected after 10 seconds', `${baseId}-terminate`);
+      }, 250);
+    }, 10000);
+
+    return () => {
+      clearInterval(tick);
+      clearTimeout(terminate);
+    };
+  }, [activeSession?.sessionId, activeSession?.isFinished, sessionReady, assessmentLocked, isMultiMonitorDetected, registerProctorViolation]);
+
   if (!activeSession) return null;
 
   // Safe fallback accessors to prevent runtime undefined access errors
@@ -253,23 +255,22 @@ export const ExamEnvironment = () => {
       if (activeSession?.application) raw = [activeSession.application];
       else if (activeSession?.applications) raw = Array.isArray(activeSession.applications) ? activeSession.applications : [activeSession.applications];
     }
-    if (!raw || raw.length === 0) return ['python', 'sql', 'power_bi', 'sas', 'excel_ai'];
+    if (!raw || raw.length === 0) return SUPPORTED_COMPILER_DOMAINS;
 
     const mapped = [];
     raw.forEach(d => {
       if (!d) return;
       const lower = String(d).toLowerCase().trim();
       if (lower === 'all applications' || lower === 'all') {
-        mapped.push('python', 'sql', 'power_bi', 'sas', 'excel_ai');
+        mapped.push(...SUPPORTED_COMPILER_DOMAINS);
       } else if (lower.includes('python')) mapped.push('python');
       else if (lower.includes('sql') || lower.includes('postgres')) mapped.push('sql');
       else if (lower.includes('power') || lower.includes('pbi') || lower.includes('bi')) mapped.push('power_bi');
       else if (lower.includes('sas')) mapped.push('sas');
-      else if (lower.includes('excel') || lower.includes('xls')) mapped.push('excel_ai');
       else mapped.push(lower);
     });
 
-    const unique = Array.from(new Set(mapped));
+    const unique = Array.from(new Set(mapped)).filter(domain => SUPPORTED_COMPILER_DOMAINS.includes(domain));
     return unique.length > 0 ? unique : ['python'];
   }, [activeSession]);
 
@@ -420,9 +421,24 @@ export const ExamEnvironment = () => {
         mediaStream={mediaStream}
         cameraStatus={cameraStatus}
         microphoneStatus={microphoneStatus}
+        faceStatus={faceStatus}
         deviceErrorDetails={deviceErrorDetails}
         onRetryMediaDevices={retryMediaDevices}
+        isMultiMonitorDetected={isMultiMonitorDetected}
       />
+
+      {displayExitCountdown !== null && (
+        <div className="fixed inset-0 bg-rose-950/90 z-[60] flex items-center justify-center p-4 text-center">
+          <div className="bg-white rounded-2xl max-w-md w-full p-7 shadow-2xl border border-rose-200">
+            <AlertCircle className="w-12 h-12 text-rose-600 mx-auto mb-3" />
+            <h3 className="text-lg font-extrabold text-rose-900 mb-2">Extended Display Detected</h3>
+            <p className="text-sm text-slate-700 leading-relaxed">
+              HDMI, screen extension, or another display was detected. Disconnect it now.
+              The assessment will be terminated in <strong>{displayExitCountdown}</strong> seconds if the display remains connected.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* ========================================================================= */}
       {/* 1. MCQ ASSESSMENT VIEW: EXACT BEFORE LAYOUT (3:1 Columns)                */}
@@ -647,13 +663,6 @@ export const ExamEnvironment = () => {
                   starterCode={compilerCode['coding-sas-1'] || ''}
                   onCodeChange={(code) => updateCompilerCode('coding-sas-1', code)}
                   onSaveCode={(code) => updateCompilerCode('coding-sas-1', code)}
-                />
-              )}
-              {activeCompilerDomain === 'excel_ai' && (
-                <ExcelAiCompiler
-                  starterCode={compilerCode['coding-excel-1'] || ''}
-                  onCodeChange={(code) => updateCompilerCode('coding-excel-1', code)}
-                  onSaveCode={(code) => updateCompilerCode('coding-excel-1', code)}
                 />
               )}
             </div>

@@ -24,8 +24,10 @@ export const AntiCheatGuard = ({
   mediaStream,
   cameraStatus,
   microphoneStatus,
+  faceStatus,
   deviceErrorDetails,
-  onRetryMediaDevices
+  onRetryMediaDevices,
+  isMultiMonitorDetected = false
 }) => {
   const [showLogs, setShowLogs] = useState(false);
   const [activeAlert, setActiveAlert] = useState(null);
@@ -142,7 +144,7 @@ export const AntiCheatGuard = ({
           <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${
             cameraStatus === 'granted'
               ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-              : cameraStatus === 'denied'
+              : cameraStatus === 'denied' || cameraStatus === 'blocked' || cameraStatus === 'disconnected'
               ? 'bg-rose-50 text-rose-700 border-rose-300'
               : 'bg-amber-50 text-amber-700 border-amber-200'
           }`}>
@@ -182,10 +184,25 @@ export const AntiCheatGuard = ({
             </button>
           )}
 
+          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full border text-[11px] font-semibold ${
+            faceStatus === 'visible'
+              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+              : faceStatus === 'missing' || faceStatus === 'multiple'
+              ? 'bg-rose-50 text-rose-700 border-rose-300'
+              : 'bg-amber-50 text-amber-700 border-amber-200'
+          }`}>
+            <Eye className="w-3 h-3" />
+            <span>Face: {(faceStatus || 'checking').toUpperCase()}</span>
+          </div>
+
           {/* Display Status */}
-          <div className="hidden lg:flex items-center gap-1 text-slate-500 bg-slate-100 px-2 py-1 rounded">
-            <Monitor className="w-3.5 h-3.5 text-slate-400" />
-            <span>Single Display Verified</span>
+          <div className={`hidden lg:flex items-center gap-1 px-2 py-1 rounded border ${
+            isMultiMonitorDetected
+              ? 'bg-rose-50 text-rose-700 border-rose-200'
+              : 'bg-slate-100 text-slate-500 border-slate-200'
+          }`}>
+            <Monitor className={`w-3.5 h-3.5 ${isMultiMonitorDetected ? 'text-rose-600' : 'text-slate-400'}`} />
+            <span>{isMultiMonitorDetected ? 'Extended Display Detected' : 'Single Display Verified'}</span>
           </div>
         </div>
 
