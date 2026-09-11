@@ -16,7 +16,7 @@ import logo from '../../assets/DV-Logo.png';
 
 export const AdminDashboard = () => {
   const { logout } = useAuth();
-  const [activeTab, setActiveTab] = useState('questions'); // 'questions' | 'scheduler' | 'submissions'
+  const [activeTab, setActiveTab] = useState('scheduler'); // 'scheduler' | 'submissions'
   
   // Desktop collapse state (default open)
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
@@ -26,20 +26,14 @@ export const AdminDashboard = () => {
 
   const navItems = [
     {
-      id: 'questions',
-      label: 'Question Bank & Bulk Upload',
-      shortLabel: 'Question Bank',
-      icon: Database
-    },
-    {
       id: 'scheduler',
-      label: 'Test Scheduler & Rules',
+      label: 'Test Scheduler',
       shortLabel: 'Scheduler',
       icon: Calendar
     },
     {
       id: 'submissions',
-      label: 'Student Submissions & Proctor Logs',
+      label: 'Student Submissions',
       shortLabel: 'Submissions',
       icon: Users
     }
@@ -156,14 +150,14 @@ export const AdminDashboard = () => {
                       ${isSidebarCollapsed ? 'md:justify-center md:px-2 md:py-3' : 'px-3.5 py-3 justify-between'}
                       ${
                         isActive
-                          ? 'bg-sky-600 text-white font-bold shadow-md shadow-sky-600/20'
+                          ? 'bg-[#051f40] text-white font-bold shadow-xs'
                           : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100 font-semibold'
                       }
                     `}
                     title={isSidebarCollapsed ? item.label : undefined}
                   >
                     <div className="flex items-center gap-3 min-w-0">
-                      <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-sky-600'}`} />
+                      <Icon className={`w-5 h-5 shrink-0 ${isActive ? 'text-orange-400' : 'text-slate-500 group-hover:text-[#051f40]'}`} />
                       
                       {/* Label visible when not collapsed or on mobile */}
                       <span

@@ -458,24 +458,30 @@ export const INITIAL_QUESTION_BANK = [
     type: 'compiler',
     title: 'Python Coding Task: Data Cleaning & Aggregation',
     description: 'Write a Python function `process_sales(transactions)` that takes a list of dictionary sales records `[{"item": "laptop", "price": 1000}, ...]` and returns a dictionary with total revenue per item.',
-    starterCode: `def process_sales(transactions):\
-    # Your code here\
-    result = {}\
-    for item in transactions:\
-        name = item["item"]\
-        price = item["price"]\
-        result[name] = result.get(name, 0) + price\
-    return result\
-\
-# Test invocation:\
-data = [\
-    {"item": "Laptop", "price": 1200},\
-    {"item": "Mouse", "price": 25},\
-    {"item": "Laptop", "price": 1200},\
-    {"item": "Keyboard", "price": 75}\
-]\
-print("Result:", process_sales(data))
-`,
+    starterCode: `def process_sales(transactions):
+    # Your code here
+    result = {}
+    for item in transactions:
+        name = item["item"]
+        price = item["price"]
+        result[name] = result.get(name, 0) + price
+    return result
+
+# Test invocation:
+data = [
+    {"item": "Laptop", "price": 1200},
+    {"item": "Mouse", "price": 25},
+    {"item": "Laptop", "price": 1200},
+    {"item": "Keyboard", "price": 75}
+]
+print("Result:", process_sales(data))`,
+    solutionCode: `def process_sales(transactions):
+    result = {}
+    for item in transactions:
+        name = item["item"]
+        price = item["price"]
+        result[name] = result.get(name, 0) + price
+    return result`,
     testCases: [
       { input: 'Laptop: 2400, Mouse: 25, Keyboard: 75', expected: "{'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}" }
     ]
@@ -486,14 +492,15 @@ print("Result:", process_sales(data))
     type: 'compiler',
     title: 'SQL Challenge: High-Earning Employee Department Ranking',
     description: 'Write a SQL query to select department_name, employee_name, and salary from employees, sorted by department_name and highest salary.',
-    starterCode: `SELECT \
-    department,\
-    name,\
-    salary,\
-    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rank\
-FROM employees\
-WHERE salary >= 75000\
+    starterCode: `SELECT 
+    department,
+    name,
+    salary,
+    DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rank
+FROM employees
+WHERE salary >= 75000
 ORDER BY department, salary DESC;`,
+    solutionCode: `SELECT department, name, salary, DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) as salary_rank FROM employees WHERE salary >= 75000 ORDER BY department, salary DESC;`,
     testCases: [
       { input: 'Query employees table where salary >= 75000', expected: 'Ranked list grouped by department' }
     ]
@@ -504,15 +511,17 @@ ORDER BY department, salary DESC;`,
     type: 'compiler',
     title: 'Power BI Challenge: DAX Dynamic YoY Revenue Measure',
     description: 'Write DAX measures to calculate Total Sales and Year-over-Year Growth Percentage.',
-    starterCode: `// Measure 1: Total Sales\
-Total Revenue = SUM(Sales[Revenue])\
-\
-// Measure 2: Previous Year Revenue\
-PY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))\
-\
-// Measure 3: YoY Growth %\
-YoY Growth % = \
-DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)`,
+    starterCode: `// Measure 1: Total Sales
+Total Revenue = SUM(Sales[Revenue])
+
+// Measure 2: Previous Year Revenue
+PY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))
+
+// Measure 3: YoY Growth %
+YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)`,
+    solutionCode: `Total Revenue = SUM(Sales[Revenue])
+PY Revenue = CALCULATE([Total Revenue], SAMEPERIODLASTYEAR('Calendar'[Date]))
+YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)`,
     testCases: [
       { input: 'DAX measure evaluation on Sales table', expected: 'YoY Growth % measure compiled' }
     ]
@@ -523,16 +532,17 @@ DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue], 0)`,
     type: 'compiler',
     title: 'SAS Challenge: Summary Statistics & PROC MEANS',
     description: 'Write a SAS script using PROC MEANS to generate summary statistics for sales performance grouped by region.',
-    starterCode: `/* SAS Data Step & PROC MEANS */\
-DATA work.sales_summary;\
-    SET sashelp.shoes;\
-    WHERE Sales > 50000;\
-RUN;\
-\
-PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;\
-    CLASS Region;\
-    VAR Sales Returns;\
+    starterCode: `/* SAS Data Step & PROC MEANS */
+DATA work.sales_summary;
+    SET sashelp.shoes;
+    WHERE Sales > 50000;
+RUN;
+
+PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX;
+    CLASS Region;
+    VAR Sales Returns;
 RUN;`,
+    solutionCode: `DATA work.sales_summary; SET sashelp.shoes; WHERE Sales > 50000; RUN; PROC MEANS DATA=work.sales_summary N MEAN STD MIN MAX; CLASS Region; VAR Sales Returns; RUN;`,
     testCases: [
       { input: 'EXECUTE PROC MEANS ON sashelp.shoes', expected: 'Summary Table by Region generated' }
     ]
@@ -544,6 +554,7 @@ RUN;`,
     title: 'Excel AI Lab: Dynamic XLOOKUP & AI Classification',
     description: 'Build a dynamic formula table with XLOOKUP and conditional AI text classification.',
     starterCode: `=XLOOKUP(A2, Products[ID], Products[Price], "Not Found") * B2`,
+    solutionCode: `=XLOOKUP(A2, Products[ID], Products[Price], "Not Found") * B2`,
     testCases: [
       { input: 'Product Lookup ID: P-102', expected: '$1,450.00' }
     ]

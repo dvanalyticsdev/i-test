@@ -161,50 +161,73 @@ export const StudentDashboard = () => {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
             {TEST_CATEGORIES.map((cat) => {
               const activeTest = assignedTests.find((t) => cat.matcher(t));
-              const isActive = Boolean(activeTest);
+              
+              // Helper to check time window
+              let isAvailable = Boolean(activeTest);
+              let statusLabel = activeTest ? 'ACTIVE' : 'IN-ACTIVE';
+
+              if (activeTest && activeTest.scheduledStartIso && activeTest.scheduledEndIso) {
+                const now = new Date().getTime();
+                const start = new Date(activeTest.scheduledStartIso).getTime();
+                const end = new Date(activeTest.scheduledEndIso).getTime();
+
+                if (now < start) {
+                  isAvailable = false;
+                  statusLabel = 'UPCOMING';
+                } else if (now > end) {
+                  isAvailable = false;
+                  statusLabel = 'EXPIRED';
+                }
+              }
 
               return (
                 <div key={cat.id} className="flex flex-col">
-                  {/* Card Rectangle - with subtle light blue shade */}
+                  {/* Card Rectangle */}
                   <div
-                    onClick={() => isActive && handleLaunchExam(activeTest)}
+                    onClick={() => isAvailable && handleLaunchExam(activeTest)}
                     className={`h-40 sm:h-44 rounded-2xl flex flex-col items-center justify-center p-4 text-center select-none transition-all duration-200 ${
-                      isActive
+                      isAvailable
                         ? 'bg-gradient-to-b from-sky-50 via-sky-50/50 to-white border border-sky-200 hover:border-sky-400 hover:shadow-md hover:scale-[1.02] shadow-xs cursor-pointer'
-                        : 'bg-gradient-to-b from-sky-50/30 to-slate-50/50 border border-slate-200 opacity-60 cursor-default'
+                        : 'bg-gradient-to-b from-slate-50 to-slate-100/50 border border-slate-200 opacity-60 cursor-default'
                     }`}
                   >
                     <span
                       className={`text-base sm:text-lg tracking-wider uppercase leading-snug ${
-                        isActive ? 'text-slate-900 font-bold' : 'text-slate-400 font-semibold'
+                        isAvailable ? 'text-slate-900 font-bold' : 'text-slate-400 font-semibold'
                       }`}
                     >
                       {cat.title}
                     </span>
+
+                    {activeTest?.scheduledFor && (
+                      <span className="text-[10px] text-slate-500 font-mono mt-2 bg-white/80 px-2 py-0.5 rounded-md border border-slate-200">
+                        {activeTest.scheduledFor}
+                      </span>
+                    )}
                   </div>
 
                   {/* Dual Action / Status Buttons */}
                   <div className="flex items-center gap-2 mt-2 w-full">
                     <button
                       type="button"
-                      disabled={!isActive}
-                      onClick={() => isActive && handleLaunchExam(activeTest)}
+                      disabled={!isAvailable}
+                      onClick={() => isAvailable && handleLaunchExam(activeTest)}
                       className={`flex-1 py-1.5 px-2 text-center text-xs uppercase font-bold tracking-wider rounded-lg transition-colors select-none ${
-                        isActive
+                        isAvailable
                           ? 'bg-[#f59e0b] hover:bg-[#d97706] text-slate-950 shadow-xs cursor-pointer'
                           : 'bg-slate-100 text-slate-400/50 border border-slate-200 cursor-not-allowed'
                       }`}
                     >
-                      ACTIVE
+                      {statusLabel}
                     </button>
                     <div
                       className={`flex-1 py-1.5 px-2 text-center text-xs uppercase tracking-wider rounded-lg select-none ${
-                        isActive
+                        isAvailable
                           ? 'bg-slate-100 text-slate-400 border border-slate-200 font-medium'
                           : 'bg-slate-200 text-slate-600 border border-slate-300 font-semibold'
                       }`}
                     >
-                      IN-ACTIVE
+                      {isAvailable ? 'IN-ACTIVE' : statusLabel}
                     </div>
                   </div>
                 </div>
