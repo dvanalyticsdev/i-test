@@ -11,9 +11,26 @@ import { ErrorBoundary } from './components/common/ErrorBoundary';
 const MainContent = () => {
   const { user } = useAuth();
   const { activeSession } = useExam();
+  const [currentPath, setCurrentPath] = React.useState(window.location.pathname);
+
+  React.useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname);
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  const navigateTo = (path) => {
+    if (window.location.pathname !== path) {
+      window.history.pushState({}, '', path);
+      setCurrentPath(path);
+    }
+  };
 
   if (!user) {
-    return <LoginView />;
+    const isAdminRoute = currentPath.startsWith('/admin');
+    return <LoginView isAdminMode={isAdminRoute} navigateTo={navigateTo} />;
   }
 
   if (user.role === 'admin') {

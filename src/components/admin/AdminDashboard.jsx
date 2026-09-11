@@ -66,10 +66,10 @@ export const AdminDashboard = () => {
 
           <div className="flex items-center gap-3">
             <img src={logo} alt="DV Analytics" className="h-7 sm:h-8 object-contain" />
-            <div className="hidden sm:block">
-              <h1 className="text-xs sm:text-sm font-bold text-slate-900 leading-tight">Administrator Console</h1>
-              <span className="text-[10px] sm:text-[11px] text-sky-700 font-bold block">Assessment, Scheduler & Proctoring Engine</span>
-            </div>
+            <div className="h-4 w-px bg-slate-200"></div>
+            <h1 className="text-xs sm:text-sm font-bold text-[#051f40] tracking-wide uppercase">
+              Administrator Console
+            </h1>
           </div>
         </div>
 
