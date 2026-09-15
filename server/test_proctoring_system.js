@@ -16,7 +16,7 @@ test('persistent, idempotent two-strike enforcement under concurrent saves', asy
     const res = await fetch(base + url, body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
     return { status: res.status, ...await res.json() };
   };
-  const start = id => request('/sessions/start', { sessionId: id, testConfig: { id: 'TEST', title: 'Test', durationMinutes: 45 }, studentUser: { id: 'TEST-STUDENT', name: 'Test' }, mcqs: [], compilers: [] });
+  const start = (id, title = 'Test') => request('/sessions/start', { sessionId: id, testConfig: { id: 'TEST', title, durationMinutes: 45 }, studentUser: { id: 'TEST-STUDENT', name: 'Test' }, mcqs: [], compilers: [] });
   try {
     await start('test');
     const responses = await Promise.all([
@@ -58,6 +58,22 @@ test('persistent, idempotent two-strike enforcement under concurrent saves', asy
     assert.equal(delJson.success, true);
     let afterSingle = (await request('/submissions')).submissions;
     assert.equal(afterSingle.some(s => s.id === subToDelete.id), false);
+
+    await start('report-one', 'Report Delete Target');
+    await request('/sessions/report-one/submit', {});
+    await start('report-two', 'Keep This Report');
+    await request('/sessions/report-two/submit', {});
+    const reportDeleteRes = await fetch(base + '/submissions/by-test', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ testTitle: 'Report Delete Target' })
+    });
+    const reportDeleteJson = await reportDeleteRes.json();
+    assert.equal(reportDeleteJson.success, true);
+    assert.equal(reportDeleteJson.deletedCount, 1);
+    afterSingle = (await request('/submissions')).submissions;
+    assert.equal(afterSingle.some(s => s.testTitle === 'Report Delete Target'), false);
+    assert.equal(afterSingle.some(s => s.testTitle === 'Keep This Report'), true);
     
     // Test bulk deletion
     const bulkRes = await fetch(base + '/submissions/bulk-delete', {

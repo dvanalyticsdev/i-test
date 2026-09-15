@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useExam } from '../../context/ExamContext';
-import { FileSpreadsheet, ExternalLink, BarChart2, Calendar } from 'lucide-react';
+import { FileSpreadsheet, ExternalLink, BarChart2, Calendar, Trash2 } from 'lucide-react';
 
 const APPLICATIONS = [
   { id: 'excel_ai', name: 'EXCEL AI' },
@@ -15,7 +15,7 @@ const APPLICATIONS = [
 ];
 
 export const StudentSubmissions = () => {
-  const { submissions, scheduledTests } = useExam();
+  const { submissions, scheduledTests, deleteTestReport } = useExam();
 
   // Derive unique assessment titles & stats for Test-Wise Reports
   const testWiseStats = useMemo(() => {
@@ -65,6 +65,14 @@ export const StudentSubmissions = () => {
     window.open(targetUrl, '_blank');
   };
 
+  const handleDeleteTestReport = (event, stat) => {
+    event.stopPropagation();
+    const confirmed = window.confirm(
+      `Delete the "${stat.title}" test report? This will permanently remove all ${stat.total} student submission record${stat.total === 1 ? '' : 's'} for this test.`
+    );
+    if (confirmed) deleteTestReport(stat.title);
+  };
+
   return (
     <div className="space-y-6 select-none font-sans">
       {/* Test-Wise Submission Reports Cards Section Only */}
@@ -98,7 +106,17 @@ export const StudentSubmissions = () => {
                     <h4 className="text-xs font-bold text-[#051f40] group-hover:text-[#ef5323] transition leading-snug line-clamp-2">
                       {stat.title}
                     </h4>
-                    <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ef5323] shrink-0 mt-0.5" />
+                    <div className="flex items-center gap-1 shrink-0">
+                      <button
+                        type="button"
+                        onClick={(event) => handleDeleteTestReport(event, stat)}
+                        title="Delete test report"
+                        className="inline-flex h-7 w-7 items-center justify-center rounded-lg border border-transparent text-slate-400 hover:border-rose-200 hover:bg-rose-50 hover:text-rose-700 transition cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-[#ef5323] mt-0.5" />
+                    </div>
                   </div>
 
                   {/* Clean Metadata Section: Application, Course, Batch */}

@@ -1,8 +1,9 @@
 import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
+import { handleCodeEditorKeyDown } from '../../utils/codeEditorUtils';
 import { Database, Play, Table, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 
-export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
+export const SqlCompiler = ({ starterCode, expectedAnswer, onCodeChange, onSaveCode }) => {
   const [query, setQuery] = useState(starterCode || '');
   const [results, setResults] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -32,7 +33,7 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const runQuery = () => {
     setIsExecuting(true);
     setTimeout(() => {
-      const validation = validateSqlQuery(query);
+      const validation = validateSqlQuery(query, expectedAnswer);
       setResults(validation.passed ? sampleQueryData : { error: validation.message });
       setIsExecuting(false);
     }, 500);
@@ -56,6 +57,7 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
         <textarea
           value={query}
           onChange={(e) => handleQueryUpdate(e.target.value)}
+          onKeyDown={(e) => handleCodeEditorKeyDown(e, query, handleQueryUpdate)}
           className="w-full h-full bg-transparent text-cyan-300 resize-none outline-none font-mono leading-relaxed selection:bg-cyan-900 selection:text-white"
           spellCheck="false"
           placeholder="-- Write your SQL query here e.g. SELECT department, AVG(salary) FROM employees..."
@@ -154,8 +156,11 @@ export const SqlCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   );
 };
 
-function validateSqlQuery(source) {
+function validateSqlQuery(source, expectedAnswer) {
   const sql = source.toLowerCase().replace(/\s+/g, ' ');
+  if (expectedAnswer && normalizeSql(source) !== normalizeSql(expectedAnswer)) {
+    return { passed: false, message: 'Submitted query does not match the uploaded expected answer.' };
+  }
   const checks = [
     ['SELECT statement is required', sql.includes('select')],
     ['Query must read from employees', sql.includes('from employees')],
@@ -168,4 +173,8 @@ function validateSqlQuery(source) {
   return failed
     ? { passed: false, message: `Validation failed: ${failed[0]}.` }
     : { passed: true };
+}
+
+function normalizeSql(value) {
+  return String(value || '').toLowerCase().replace(/--.*$/gm, '').replace(/\s+/g, ' ').replace(/\s*;\s*$/, '').trim();
 }

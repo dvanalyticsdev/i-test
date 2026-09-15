@@ -90,6 +90,10 @@ export const TestDetailsView = ({ testId: propTestId, testTitle: propTestTitle }
     // If MCQ ONLY, STRICTLY return NO compiler challenges!
     if (isMcqOnly) return [];
 
+    if (Array.isArray(testMeta.practicalQuestions) && testMeta.practicalQuestions.length > 0) {
+      return testMeta.practicalQuestions;
+    }
+
     // Check attached Practical File
     if (testMeta.practicalFileId) {
       const attachedFile = (assessments || []).find(a => a.id === testMeta.practicalFileId);
@@ -437,6 +441,18 @@ export const TestDetailsView = ({ testId: propTestId, testTitle: propTestTitle }
                       {lab.description}
                     </p>
                   </div>
+
+                  {(lab.datasetInfo || lab.setupFileName) && (
+                    <div className="space-y-1">
+                      <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">Setup / Dataset Context</span>
+                      <div className="text-xs font-medium text-slate-800 leading-relaxed bg-white p-3.5 rounded-xl border border-slate-200">
+                        {lab.setupFileName && (
+                          <p className="font-bold text-slate-900 mb-1">File: {lab.setupFileName}</p>
+                        )}
+                        <p className="whitespace-pre-wrap">{lab.datasetInfo || lab.setupContent}</p>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Test Cases / Sample Input & Expected Output */}
                   {lab.testCases && lab.testCases.length > 0 && (

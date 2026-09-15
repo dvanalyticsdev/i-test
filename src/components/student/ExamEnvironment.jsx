@@ -285,7 +285,21 @@ export const ExamEnvironment = () => {
   const secs = secondsLeft % 60;
   const formattedTime = `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}`;
 
-  const currentLabSpec = COMPILER_LAB_SPECS[activeCompilerDomain] || COMPILER_LAB_SPECS[testDomains[0]] || COMPILER_LAB_SPECS.python;
+  const currentCompilerLab = compilers.find(lab => lab.domain === activeCompilerDomain) || compilers[0] || null;
+  const fallbackLabSpec = COMPILER_LAB_SPECS[activeCompilerDomain] || COMPILER_LAB_SPECS[testDomains[0]] || COMPILER_LAB_SPECS.python;
+  const currentLabSpec = currentCompilerLab ? {
+    ...fallbackLabSpec,
+    title: currentCompilerLab.title || fallbackLabSpec.title,
+    scenario: currentCompilerLab.datasetInfo || currentCompilerLab.setupContent || fallbackLabSpec.scenario,
+    instructions: currentCompilerLab.description
+      ? currentCompilerLab.description.split(/\r?\n/).map(item => item.trim()).filter(Boolean)
+      : fallbackLabSpec.instructions,
+    sampleInput: currentCompilerLab.setupFileName
+      ? `Setup/Data File: ${currentCompilerLab.setupFileName}${currentCompilerLab.setupContent ? `\n\n${currentCompilerLab.setupContent}` : ''}`
+      : fallbackLabSpec.sampleInput,
+    sampleOutput: currentCompilerLab.expectedOutput || fallbackLabSpec.sampleOutput,
+    constraints: currentCompilerLab.constraints || fallbackLabSpec.constraints
+  } : fallbackLabSpec;
 
   // If disqualified or finished
   const isDisqualifiedSession = Boolean(
@@ -639,30 +653,34 @@ export const ExamEnvironment = () => {
             <div className="h-full min-h-[560px] flex flex-col">
               {activeCompilerDomain === 'python' && (
                 <PythonCompiler
-                  starterCode={compilerCode['coding-py-1'] || ''}
-                  onCodeChange={(code) => updateCompilerCode('coding-py-1', code)}
-                  onSaveCode={(code) => updateCompilerCode('coding-py-1', code)}
+                  starterCode={compilerCode[currentCompilerLab?.id || 'coding-py-1'] || currentCompilerLab?.starterCode || ''}
+                  expectedAnswer={currentCompilerLab?.solutionCode}
+                  onCodeChange={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-py-1', code)}
+                  onSaveCode={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-py-1', code)}
                 />
               )}
               {activeCompilerDomain === 'sql' && (
                 <SqlCompiler
-                  starterCode={compilerCode['coding-sql-1'] || ''}
-                  onCodeChange={(code) => updateCompilerCode('coding-sql-1', code)}
-                  onSaveCode={(code) => updateCompilerCode('coding-sql-1', code)}
+                  starterCode={compilerCode[currentCompilerLab?.id || 'coding-sql-1'] || currentCompilerLab?.starterCode || ''}
+                  expectedAnswer={currentCompilerLab?.solutionCode}
+                  onCodeChange={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-sql-1', code)}
+                  onSaveCode={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-sql-1', code)}
                 />
               )}
               {activeCompilerDomain === 'power_bi' && (
                 <PowerBICompiler
-                  starterCode={compilerCode['coding-pb-1'] || ''}
-                  onCodeChange={(code) => updateCompilerCode('coding-pb-1', code)}
-                  onSaveCode={(code) => updateCompilerCode('coding-pb-1', code)}
+                  starterCode={compilerCode[currentCompilerLab?.id || 'coding-pb-1'] || currentCompilerLab?.starterCode || ''}
+                  expectedAnswer={currentCompilerLab?.solutionCode}
+                  onCodeChange={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-pb-1', code)}
+                  onSaveCode={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-pb-1', code)}
                 />
               )}
               {activeCompilerDomain === 'sas' && (
                 <SasCompiler
-                  starterCode={compilerCode['coding-sas-1'] || ''}
-                  onCodeChange={(code) => updateCompilerCode('coding-sas-1', code)}
-                  onSaveCode={(code) => updateCompilerCode('coding-sas-1', code)}
+                  starterCode={compilerCode[currentCompilerLab?.id || 'coding-sas-1'] || currentCompilerLab?.starterCode || ''}
+                  expectedAnswer={currentCompilerLab?.solutionCode}
+                  onCodeChange={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-sas-1', code)}
+                  onSaveCode={(code) => updateCompilerCode(currentCompilerLab?.id || 'coding-sas-1', code)}
                 />
               )}
             </div>

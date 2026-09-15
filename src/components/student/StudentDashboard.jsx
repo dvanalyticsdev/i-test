@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useExam } from '../../context/ExamContext';
+import { detectExtendedDisplay } from '../../utils/displayDetection';
 import { 
   ShieldAlert, 
   Play, 
@@ -433,15 +434,21 @@ function inspectVisibleCameraFrame(video) {
   const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
   let total = 0;
   let totalSquares = 0;
+  let darkPixels = 0;
+  let flatPixels = 0;
   for (let i = 0; i < pixels.length; i += 4) {
     const luminance = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
     total += luminance;
     totalSquares += luminance * luminance;
+    if (luminance < 30) darkPixels += 1;
+    if (Math.abs(pixels[i] - pixels[i + 1]) < 3 && Math.abs(pixels[i + 1] - pixels[i + 2]) < 3) flatPixels += 1;
   }
   const count = pixels.length / 4;
   const average = total / count;
   const variance = totalSquares / count - average * average;
-  if (average < 18 || variance < 6) {
+  const darkRatio = darkPixels / count;
+  const flatRatio = flatPixels / count;
+  if (darkRatio > 0.72 || average < 38 || (average < 62 && variance < 9) || (flatRatio > 0.94 && variance < 12)) {
     return { visible: false, reason: 'Camera is granted, but the video feed is blank or covered.' };
   }
   return { visible: true, reason: '' };
@@ -460,10 +467,16 @@ function ProctoringPreflight({ test, onCancel, onVerified }) {
   useEffect(() => {
     let cancelled = false;
 
-    const checkDisplay = () => {
+    const checkDisplay = async () => {
       try {
-        const extended = Boolean(window.screen?.isExtended) || (window.screen && window.screen.availWidth > window.screen.width * 1.5);
-        if (!cancelled) setDisplayStatus(extended ? 'blocked' : 'passed');
+        const result = await detectExtendedDisplay();
+        if (cancelled) return;
+        setDisplayStatus(result.extended ? 'blocked' : 'passed');
+        if (result.extended) {
+          setError(`Extended display blocked: ${result.reason}. Disconnect HDMI, casting, or extra monitors before starting.`);
+        } else {
+          setError(prev => prev.includes('Extended display blocked') ? '' : prev);
+        }
       } catch {
         if (!cancelled) setDisplayStatus('passed');
       }

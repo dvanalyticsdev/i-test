@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "test": "node --test server/test_proctoring_system.js src/utils/proctorEvents.test.js src/utils/examTransport.test.js src/hooks/useProctoring.test.js"
+    "test": "node --test server/test_proctoring_system.js src/utils/proctorEvents.test.js src/utils/examTransport.test.js src/utils/displayDetection.test.js src/utils/codeEditorUtils.test.js src/hooks/useProctoring.test.js"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

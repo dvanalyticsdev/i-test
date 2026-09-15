@@ -1,9 +1,16 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { createIncidentCoordinator } from '../utils/proctorEvents.js';
+import { detectExtendedDisplay } from '../utils/displayDetection.js';
 const reloadEvents = new Map();
 let restoredSessionId;
 try { restoredSessionId = JSON.parse(localStorage.getItem('i_test_active_session'))?.sessionId; } catch {}
 const navigationKey = id => 'i_test_departure_' + id;
+const CAMERA_CHECK_INTERVAL_MS = 800;
+const BLANK_CAMERA_WARNING_FRAMES = 2;
+const BLANK_CAMERA_ESCALATION_MS = 7000;
+const FACE_MISSING_WARNING_FRAMES = 3;
+const FACE_MISSING_ESCALATION_MS = 9000;
+const NOT_READY_WARNING_FRAMES = 5;
 
 function hasVisibleCameraFrame(video) {
   if (!video || video.readyState < 2 || !video.videoWidth || !video.videoHeight) return null;
@@ -17,15 +24,24 @@ function hasVisibleCameraFrame(video) {
     const pixels = ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     let total = 0;
     let totalSquares = 0;
+    let darkPixels = 0;
+    let flatPixels = 0;
     for (let i = 0; i < pixels.length; i += 4) {
       const luminance = (pixels[i] + pixels[i + 1] + pixels[i + 2]) / 3;
       total += luminance;
       totalSquares += luminance * luminance;
+      if (luminance < 30) darkPixels += 1;
+      if (Math.abs(pixels[i] - pixels[i + 1]) < 3 && Math.abs(pixels[i + 1] - pixels[i + 2]) < 3) flatPixels += 1;
     }
     const count = pixels.length / 4;
     const average = total / count;
     const variance = totalSquares / count - average * average;
-    return average >= 18 && variance >= 6;
+    const darkRatio = darkPixels / count;
+    const flatRatio = flatPixels / count;
+    if (darkRatio > 0.72 || average < 38 || (average < 62 && variance < 9) || (flatRatio > 0.94 && variance < 12)) {
+      return false;
+    }
+    return true;
   } catch {
     return null;
   }
@@ -60,6 +76,15 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
   const faceTimerRef = useRef(null);
   const faceIncidentRef = useRef(null);
   const blankCameraIncidentRef = useRef(null);
+  const cameraNotReadyIncidentRef = useRef(null);
+  const blankFrameCountRef = useRef(0);
+  const visibleFrameCountRef = useRef(0);
+  const notReadyFrameCountRef = useRef(0);
+  const missingFaceCountRef = useRef(0);
+  const blankCameraSinceRef = useRef(null);
+  const missingFaceSinceRef = useRef(null);
+  const blankCameraEscalatedRef = useRef(false);
+  const missingFaceEscalatedRef = useRef(false);
 
   const userEnteredFullscreenRef = useRef(false);
   const isSubmittingRef = useRef(false);
@@ -96,6 +121,15 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
     }
     faceIncidentRef.current = null;
     blankCameraIncidentRef.current = null;
+    cameraNotReadyIncidentRef.current = null;
+    blankFrameCountRef.current = 0;
+    visibleFrameCountRef.current = 0;
+    notReadyFrameCountRef.current = 0;
+    missingFaceCountRef.current = 0;
+    blankCameraSinceRef.current = null;
+    missingFaceSinceRef.current = null;
+    blankCameraEscalatedRef.current = false;
+    missingFaceEscalatedRef.current = false;
   }, []);
 
   const startFaceMonitoring = useCallback((stream, generation) => {
@@ -110,31 +144,59 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
     const detector = 'FaceDetector' in window
       ? new window.FaceDetector({ fastMode: true, maxDetectedFaces: 3 })
       : null;
-    if (!detector) setFaceStatus('unsupported');
+    if (!detector) {
+      setFaceStatus('missing');
+      triggerViolationRef.current('Face detection is unavailable in this browser during active assessment');
+    }
 
     const inspect = async () => {
       if (!activeRef.current || generationRef.current !== generation || !faceVideoRef.current) return;
       try {
         if (video.readyState < 2) {
-          setFaceStatus('checking');
+          notReadyFrameCountRef.current += 1;
+          if (notReadyFrameCountRef.current >= NOT_READY_WARNING_FRAMES) {
+            setCameraStatus('blocked');
+            setFaceStatus('missing');
+            if (!cameraNotReadyIncidentRef.current) {
+              cameraNotReadyIncidentRef.current = crypto.randomUUID();
+              triggerViolationRef.current('Camera stream is not producing readable video frames during active assessment', cameraNotReadyIncidentRef.current);
+            }
+          } else {
+            setFaceStatus('checking');
+          }
           return;
         }
+        notReadyFrameCountRef.current = 0;
         const visibleFrame = hasVisibleCameraFrame(video);
         if (visibleFrame === false) {
+          blankFrameCountRef.current += 1;
+          visibleFrameCountRef.current = 0;
+          if (blankFrameCountRef.current < BLANK_CAMERA_WARNING_FRAMES) return;
           setCameraStatus('blocked');
           setFaceStatus('missing');
+          blankCameraSinceRef.current ||= Date.now();
           if (!blankCameraIncidentRef.current) {
             blankCameraIncidentRef.current = crypto.randomUUID();
             triggerViolationRef.current('Camera video feed is blank or covered during active assessment', blankCameraIncidentRef.current);
           }
+          if (!blankCameraEscalatedRef.current && Date.now() - blankCameraSinceRef.current >= BLANK_CAMERA_ESCALATION_MS) {
+            blankCameraEscalatedRef.current = true;
+            triggerViolationRef.current('Camera remained blank or covered after warning during active assessment', crypto.randomUUID());
+          }
           return;
         }
         if (visibleFrame === true) {
-          setCameraStatus('granted');
-          blankCameraIncidentRef.current = null;
+          visibleFrameCountRef.current += 1;
+          blankFrameCountRef.current = 0;
+          if (visibleFrameCountRef.current >= 2) {
+            setCameraStatus('granted');
+            blankCameraIncidentRef.current = null;
+            cameraNotReadyIncidentRef.current = null;
+            blankCameraSinceRef.current = null;
+            blankCameraEscalatedRef.current = false;
+          }
         }
         if (!detector) {
-          setFaceStatus('unsupported');
           return;
         }
         const faces = await detector.detect(video);
@@ -142,14 +204,25 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
         if (faces.length === 1) {
           setFaceStatus('visible');
           faceIncidentRef.current = null;
+          missingFaceCountRef.current = 0;
+          missingFaceSinceRef.current = null;
+          missingFaceEscalatedRef.current = false;
         } else if (faces.length === 0) {
+          missingFaceCountRef.current += 1;
           setFaceStatus('missing');
-          if (!faceIncidentRef.current) {
+          if (missingFaceCountRef.current >= FACE_MISSING_WARNING_FRAMES && !faceIncidentRef.current) {
             faceIncidentRef.current = crypto.randomUUID();
+            missingFaceSinceRef.current = Date.now();
             triggerViolationRef.current('Candidate face not visible in camera frame', faceIncidentRef.current);
+          }
+          if (missingFaceSinceRef.current && !missingFaceEscalatedRef.current && Date.now() - missingFaceSinceRef.current >= FACE_MISSING_ESCALATION_MS) {
+            missingFaceEscalatedRef.current = true;
+            triggerViolationRef.current('Candidate face remained missing after warning during active assessment', crypto.randomUUID());
           }
         } else {
           setFaceStatus('multiple');
+          missingFaceCountRef.current = 0;
+          missingFaceSinceRef.current = null;
           if (!faceIncidentRef.current) {
             faceIncidentRef.current = crypto.randomUUID();
             triggerViolationRef.current('Multiple faces detected in camera frame', faceIncidentRef.current);
@@ -161,8 +234,8 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
     };
 
     video.play().catch(() => {});
-    faceTimerRef.current = setInterval(inspect, 2500);
-    setTimeout(inspect, 1200);
+    faceTimerRef.current = setInterval(inspect, CAMERA_CHECK_INTERVAL_MS);
+    setTimeout(inspect, 500);
   }, [stopFaceMonitoring]);
 
   // Request & Monitor Camera and Microphone Permissions via getUserMedia (executed ONCE)
@@ -183,7 +256,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
 
     // If tracks are still active, stop them before retrying
     if (mediaStreamRef.current) {
-      mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+      mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.onmute = null; t.onunmute = null; t.stop(); });
       mediaStreamRef.current = null;
     }
 
@@ -198,7 +271,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       });
 
       if (!activeRef.current || generation !== generationRef.current) {
-        stream.getTracks().forEach(t => t.stop());
+        stream.getTracks().forEach(t => { t.onended = null; t.onmute = null; t.onunmute = null; t.stop(); });
         return;
       }
       mediaStreamRef.current = stream;
@@ -215,6 +288,19 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
           if (!activeRef.current || generation !== generationRef.current) return;
           setCameraStatus('disconnected');
           triggerViolationRef.current('Webcam disconnected or disabled during active assessment', mediaIncidentRef.current);
+        };
+        track.onmute = () => {
+          if (!activeRef.current || generation !== generationRef.current) return;
+          setCameraStatus('blocked');
+          setFaceStatus('missing');
+          triggerViolationRef.current('Webcam video stream muted or privacy shutter enabled during active assessment', mediaIncidentRef.current);
+        };
+        track.onunmute = () => {
+          if (!activeRef.current || generation !== generationRef.current) return;
+          notReadyFrameCountRef.current = 0;
+          blankFrameCountRef.current = 0;
+          setCameraStatus('granted');
+          setFaceStatus(prev => prev === 'missing' ? 'checking' : prev);
         };
       });
 
@@ -257,7 +343,7 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
   useEffect(() => {
     if (!isExamActive) {
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.onmute = null; t.onunmute = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
         stopFaceMonitoring();
@@ -329,25 +415,39 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       userEnteredFullscreenRef.current = true;
     }
 
-    // Multi-Monitor check
-    const checkDisplaySetup = () => {
+    // Multi-monitor / HDMI / casting display check
+    let screenDetailsRef = null;
+    const displayIncidentRef = { current: null };
+    const checkDisplaySetup = async () => {
       try {
-        let extended = false;
-        if ('getScreenDetails' in window || 'isExtended' in window.screen) {
-          if (window.screen.isExtended) {
-            extended = true;
-          }
+        const result = await detectExtendedDisplay();
+        if (!activeRef.current || generationRef.current !== deviceGeneration) return;
+        setIsMultiMonitorDetected(result.extended);
+        if (result.extended) {
+          if (!displayIncidentRef.current) displayIncidentRef.current = crypto.randomUUID();
+          triggerViolationRef.current(`Extended display / HDMI / casting setup detected (${result.reason})`, displayIncidentRef.current);
+        } else {
+          displayIncidentRef.current = null;
         }
-        if (window.screen && window.screen.availWidth > window.screen.width * 1.5) {
-          extended = true;
-        }
-        setIsMultiMonitorDetected(extended);
       } catch (e) {
-        // Safe fallback
+        // Safe fallback: keep current display status.
       }
     };
     checkDisplaySetup();
     const displayTimer = setInterval(checkDisplaySetup, 2000);
+    const attachScreenDetailsListener = async () => {
+      if (typeof window.getScreenDetails !== 'function') return;
+      try {
+        const details = await window.getScreenDetails();
+        if (!activeRef.current || generationRef.current !== deviceGeneration) return;
+        screenDetailsRef = details;
+        details.addEventListener?.('screenschange', checkDisplaySetup);
+        details.addEventListener?.('currentscreenchange', checkDisplaySetup);
+      } catch {
+        // Permission may be unavailable; polling fallback still runs.
+      }
+    };
+    attachScreenDetailsListener();
 
     const departureId = () => {
       const id = incidentsRef.current.leave();
@@ -521,13 +621,15 @@ export function useProctoring({ onViolation, isExamActive, sessionId }) {
       document.removeEventListener('keydown', handleKeyDown);
       document.removeEventListener('keyup', handleKeyUp);
       clearInterval(displayTimer);
+      screenDetailsRef?.removeEventListener?.('screenschange', checkDisplaySetup);
+      screenDetailsRef?.removeEventListener?.('currentscreenchange', checkDisplaySetup);
 
       if (navigator.mediaDevices && navigator.mediaDevices.removeEventListener) {
         navigator.mediaDevices.removeEventListener('devicechange', handleDeviceChange);
       }
 
       if (mediaStreamRef.current) {
-        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.stop(); });
+        mediaStreamRef.current.getTracks().forEach((t) => { t.onended = null; t.onmute = null; t.onunmute = null; t.stop(); });
         mediaStreamRef.current = null;
         setMediaStream(null);
         stopFaceMonitoring();

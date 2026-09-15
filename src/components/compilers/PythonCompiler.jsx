@@ -1,8 +1,9 @@
 import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
+import { handleCodeEditorKeyDown } from '../../utils/codeEditorUtils';
 import { Play, CheckCircle2, XCircle, RotateCcw, Terminal, Code2, Save, Check } from 'lucide-react';
 
-export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCode }) => {
+export const PythonCompiler = ({ starterCode, expectedAnswer, testCases, onCodeChange, onSaveCode }) => {
   const [code, setCode] = useState(starterCode || '');
   const [output, setOutput] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -27,7 +28,7 @@ export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCod
     setOutput('Compiling and executing Python 3.11 script against test cases...');
 
     setTimeout(() => {
-      const checks = validatePythonSolution(code);
+      const checks = validatePythonSolution(code, expectedAnswer);
       const passed = checks.every(item => item.pass);
       const consoleOutput = passed
         ? "=== PYTHON 3.11 VALIDATION OUTPUT ===\nResult: {'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}\nFiltered invalid transaction: {'item': 'Laptop', 'price': -300}\n\nExecution Time: 0.041s | Memory: 14.2 MB"
@@ -58,6 +59,7 @@ export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCod
         <textarea
           value={code}
           onChange={(e) => handleCodeUpdate(e.target.value)}
+          onKeyDown={(e) => handleCodeEditorKeyDown(e, code, handleCodeUpdate)}
           className="w-full h-full bg-transparent text-emerald-300 resize-none outline-none font-mono leading-relaxed selection:bg-sky-900 selection:text-white"
           spellCheck="false"
           placeholder="# Enter your Python 3.11 solution here..."
@@ -142,7 +144,18 @@ export const PythonCompiler = ({ starterCode, testCases, onCodeChange, onSaveCod
   );
 };
 
-function validatePythonSolution(source) {
+function validatePythonSolution(source, expectedAnswer) {
+  if (expectedAnswer) {
+    const matchesExpectedAnswer = normalizePython(source) === normalizePython(expectedAnswer);
+    return [
+      {
+        pass: matchesExpectedAnswer,
+        label: 'Matches uploaded expected answer',
+        expected: 'Uploaded Python solution',
+        actual: 'Checked source'
+      }
+    ];
+  }
   const normalized = source.toLowerCase();
   return [
     {
@@ -170,4 +183,8 @@ function validatePythonSolution(source) {
       actual: 'Checked source'
     }
   ];
+}
+
+function normalizePython(value) {
+  return String(value || '').replace(/#.*$/gm, '').replace(/\s+/g, ' ').trim();
 }

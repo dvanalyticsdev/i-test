@@ -478,7 +478,20 @@ async function handleApiRoute(req, res) {
     return sendJson(res, 200, { success: true, deletedCount: beforeCount - db.submissions.length });
   }
 
-  // 10. Delete single submission: DELETE /api/submissions/:id
+  // 10. Delete all submissions for a test report: DELETE /api/submissions/by-test
+  if (url === '/api/submissions/by-test' && method === 'DELETE') {
+    const testTitle = String(body.testTitle || '').trim();
+    if (!testTitle) {
+      return sendJson(res, 400, { success: false, error: 'Test title is required.' });
+    }
+    const normalizedTitle = testTitle.toLowerCase();
+    const beforeCount = (db.submissions || []).length;
+    db.submissions = (db.submissions || []).filter(s => String(s.testTitle || '').toLowerCase() !== normalizedTitle);
+    await writeDb(db);
+    return sendJson(res, 200, { success: true, deletedCount: beforeCount - db.submissions.length, testTitle });
+  }
+
+  // 11. Delete single submission: DELETE /api/submissions/:id
   const deleteSubMatch = url.match(/^\/api\/submissions\/([^/?]+)$/);
   if (deleteSubMatch && method === 'DELETE') {
     const subId = decodeURIComponent(deleteSubMatch[1]);

@@ -40,8 +40,9 @@ export const AntiCheatGuard = ({
       if (videoRef.current.srcObject !== mediaStream) {
         videoRef.current.srcObject = mediaStream;
       }
+      videoRef.current.play?.().catch(() => {});
     }
-  }, [mediaStream]);
+  }, [mediaStream, cameraStatus]);
 
   // When a new warning log is registered, trigger a prominent visual alert banner
   useEffect(() => {

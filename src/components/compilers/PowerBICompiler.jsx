@@ -1,9 +1,10 @@
 import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
+import { handleCodeEditorKeyDown } from '../../utils/codeEditorUtils';
 import { BarChart3, Play, Sparkles, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 
-export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
+export const PowerBICompiler = ({ starterCode, expectedAnswer, onCodeChange, onSaveCode }) => {
   const [daxCode, setDaxCode] = useState(starterCode || '');
   const [chartData, setChartData] = useState(null);
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -32,7 +33,7 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const evaluateDax = () => {
     setIsEvaluating(true);
     setTimeout(() => {
-      const validation = validateDaxMeasure(daxCode);
+      const validation = validateDaxMeasure(daxCode, expectedAnswer);
       setChartData(validation.passed ? sampleVizData : { error: validation.message });
       setIsEvaluating(false);
     }, 500);
@@ -56,6 +57,7 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
         <textarea
           value={daxCode}
           onChange={(e) => handleUpdate(e.target.value)}
+          onKeyDown={(e) => handleCodeEditorKeyDown(e, daxCode, handleUpdate)}
           className="w-full h-full bg-transparent text-amber-300 resize-none outline-none leading-relaxed selection:bg-amber-950 selection:text-white"
           spellCheck="false"
           placeholder="// Enter DAX formula e.g. YoY Growth % = DIVIDE([Total Revenue] - [PY Revenue], [PY Revenue])"
@@ -141,8 +143,11 @@ export const PowerBICompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   );
 };
 
-function validateDaxMeasure(source) {
+function validateDaxMeasure(source, expectedAnswer) {
   const dax = source.toLowerCase().replace(/\s+/g, ' ');
+  if (expectedAnswer && normalizeDax(source) !== normalizeDax(expectedAnswer)) {
+    return { passed: false, message: 'Submitted DAX does not match the uploaded expected answer.' };
+  }
   const checks = [
     ['Define a YoY growth measure', dax.includes('yoy') && dax.includes('%')],
     ['Use DIVIDE() for safe division', dax.includes('divide(')],
@@ -154,4 +159,8 @@ function validateDaxMeasure(source) {
   return failed
     ? { passed: false, message: `Validation failed: ${failed[0]}.` }
     : { passed: true };
+}
+
+function normalizeDax(value) {
+  return String(value || '').toLowerCase().replace(/--.*$/gm, '').replace(/\s+/g, ' ').trim();
 }

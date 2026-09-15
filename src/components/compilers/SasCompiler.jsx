@@ -1,8 +1,9 @@
 import { useCodeSave } from '../../hooks/useCodeSave';
 import React, { useState, useEffect } from 'react';
+import { handleCodeEditorKeyDown } from '../../utils/codeEditorUtils';
 import { Binary, Play, Terminal, CheckCircle2, RotateCcw, Save, Check } from 'lucide-react';
 
-export const SasCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
+export const SasCompiler = ({ starterCode, expectedAnswer, onCodeChange, onSaveCode }) => {
   const [sasCode, setSasCode] = useState(starterCode || '');
   const [output, setOutput] = useState(null);
   const [isExecuting, setIsExecuting] = useState(false);
@@ -24,7 +25,7 @@ export const SasCompiler = ({ starterCode, onCodeChange, onSaveCode }) => {
   const runSas = () => {
     setIsExecuting(true);
     setTimeout(() => {
-      const validation = validateSasProgram(sasCode);
+      const validation = validateSasProgram(sasCode, expectedAnswer);
       setOutput(validation.passed ? `=== SAS System Output (PROC MEANS Procedure) ===
 
 The MEANS Procedure
@@ -62,6 +63,7 @@ NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.` : `=== SAS Syste
         <textarea
           value={sasCode}
           onChange={(e) => handleUpdate(e.target.value)}
+          onKeyDown={(e) => handleCodeEditorKeyDown(e, sasCode, handleUpdate)}
           className="w-full h-full bg-transparent text-purple-300 resize-none outline-none leading-relaxed selection:bg-purple-950 selection:text-white"
           spellCheck="false"
           placeholder="/* Write SAS statements e.g. PROC MEANS DATA=sales; RUN; */"
@@ -134,8 +136,11 @@ NOTE: PROCEDURE MEANS used (Total process time): 0.08 seconds.` : `=== SAS Syste
   );
 };
 
-function validateSasProgram(source) {
+function validateSasProgram(source, expectedAnswer) {
   const sas = source.toLowerCase().replace(/\s+/g, ' ');
+  if (expectedAnswer && normalizeSas(source) !== normalizeSas(expectedAnswer)) {
+    return { passed: false, message: 'Submitted SAS code does not match the uploaded expected answer.' };
+  }
   const checks = [
     ['PROC MEANS is required', sas.includes('proc means')],
     ['Use DATA=WORK.SALES_SUMMARY', sas.includes('data=work.sales_summary') || sas.includes('data = work.sales_summary')],
@@ -147,4 +152,8 @@ function validateSasProgram(source) {
   return failed
     ? { passed: false, message: failed[0] }
     : { passed: true };
+}
+
+function normalizeSas(value) {
+  return String(value || '').toLowerCase().replace(/\/\*[\s\S]*?\*\//g, '').replace(/\s+/g, ' ').trim();
 }

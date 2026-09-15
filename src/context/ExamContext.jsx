@@ -251,7 +251,12 @@ export const ExamProvider = ({ children }) => {
     
     const testDomains = testConfig.domains || (testConfig.domain ? [testConfig.domain] : []);
     const sessionDomains = isMcqOnly ? testDomains.slice(0, 1) : normalizeCompilerDomains(testConfig);
-    const initialCompilers = isMcqOnly ? [] : buildCompilerLabs({ ...testConfig, domains: sessionDomains }, questionBank);
+    const uploadedPracticalQuestions = Array.isArray(testConfig.practicalQuestions)
+      ? testConfig.practicalQuestions.filter(q => q?.type === 'compiler')
+      : [];
+    const initialCompilers = isMcqOnly
+      ? []
+      : (uploadedPracticalQuestions.length > 0 ? uploadedPracticalQuestions : buildCompilerLabs({ ...testConfig, domains: sessionDomains }, questionBank));
     const initialMcqs = isCompilerOnly ? [] : (mcqs || []);
 
     const sessionId = 'SESS-' + crypto.randomUUID();
@@ -453,6 +458,21 @@ export const ExamProvider = ({ children }) => {
     }
   };
 
+  const deleteTestReport = async (testTitle) => {
+    if (!testTitle) return;
+    const normalizedTitle = String(testTitle).toLowerCase();
+    setSubmissions(prev => prev.filter(s => String(s.testTitle || '').toLowerCase() !== normalizedTitle));
+    try {
+      await fetch('/api/submissions/by-test', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ testTitle })
+      });
+    } catch (e) {
+      console.warn('[ExamContext] Failed to delete test report submissions on server:', e);
+    }
+  };
+
   return (
     <ExamContext.Provider
       value={{
@@ -466,6 +486,7 @@ export const ExamProvider = ({ children }) => {
         submissions,
         deleteSubmission,
         deleteSubmissions,
+        deleteTestReport,
         activeSession,
         sessionReady,
         assessmentLocked,

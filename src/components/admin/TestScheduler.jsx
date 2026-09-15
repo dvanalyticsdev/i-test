@@ -1,6 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useExam } from '../../context/ExamContext';
 import { downloadAssessmentExcelTemplate, parseAssessmentExcelFile } from '../../utils/assessmentDocumentUtils';
+import {
+  buildPracticalLab,
+  buildQuestionDocContent,
+  getPracticalConfig,
+  parsePracticalQuestionFile,
+  parsePracticalSetupFile
+} from '../../utils/practicalAssessmentUtils';
 import { Plus, Search, ChevronDown, FileText, Code2, Check, Calendar, Clock, X, Filter, Upload, ExternalLink, Trash2, Download } from 'lucide-react';
 
 const APPLICATIONS = [
@@ -16,121 +23,6 @@ const APPLICATIONS = [
 ];
 
 const SUPPORTED_COMPILER_APPLICATION_IDS = ['python', 'sql', 'sas', 'power_bi'];
-const PRACTICAL_FILE_TYPES = {
-  python: {
-    label: 'Python',
-    extension: '.py',
-    sampleFileName: 'python_practical_sample.py',
-    sampleContent: `# i-test Python Practical Sample
-# Candidate task:
-# Complete process_sales so it returns total positive revenue grouped by item.
-
-transactions = [
-    {"item": "Laptop", "price": 1200},
-    {"item": "Mouse", "price": 25},
-    {"item": "Laptop", "price": 1200},
-    {"item": "Laptop", "price": -300},
-    {"item": "Keyboard", "price": 75},
-]
-
-def process_sales(transactions):
-    result = {}
-    # Write your solution here
-    return result
-
-print(process_sales(transactions))
-# Expected output:
-# {'Laptop': 2400, 'Mouse': 25, 'Keyboard': 75}
-`
-  },
-  sql: {
-    label: 'SQL',
-    extension: '.sql',
-    sampleFileName: 'sql_practical_sample.sql',
-    sampleContent: `-- i-test SQL Practical Sample
--- Admin can keep schema, seed data, task, and expected output in one .sql file.
--- For multiple tables/files, upload multiple .sql files together.
-
-CREATE TABLE employees (
-  id INT PRIMARY KEY,
-  name VARCHAR(100),
-  department VARCHAR(100),
-  salary INT
-);
-
-INSERT INTO employees (id, name, department, salary) VALUES
-(101, 'Sarah Jenkins', 'Engineering', 115000),
-(104, 'David Chen', 'Engineering', 98000),
-(108, 'Elena Rostova', 'Data Science', 125000),
-(112, 'Marcus Vance', 'Data Science', 92000),
-(115, 'Aria Montgomery', 'Product', 105000);
-
--- Candidate task:
--- Return id, name, department, salary, and salary_rank.
--- Rank employees by salary descending within each department.
-
-SELECT
-  id,
-  name,
-  department,
-  salary,
-  DENSE_RANK() OVER (PARTITION BY department ORDER BY salary DESC) AS salary_rank
-FROM employees
-ORDER BY department, salary_rank;
-`
-  },
-  sas: {
-    label: 'SAS',
-    extension: '.sas',
-    sampleFileName: 'sas_practical_sample.sas',
-    sampleContent: `/* i-test SAS Practical Sample
-   Candidate task:
-   Create a regional sales summary and produce mean, min, and max sales.
-*/
-
-DATA WORK.SALES_SUMMARY;
-  INPUT Region $ Sales Returns;
-  DATALINES;
-North 12000 300
-North 18000 250
-South 14500 400
-South 21000 375
-West 17500 225
-;
-RUN;
-
-PROC MEANS DATA=WORK.SALES_SUMMARY MEAN MIN MAX;
-  CLASS Region;
-  VAR Sales Returns;
-RUN;
-`
-  },
-  power_bi: {
-    label: 'Power BI',
-    extension: '.dax',
-    sampleFileName: 'power_bi_practical_sample.dax',
-    sampleContent: `-- i-test Power BI / DAX Practical Sample
--- Candidate task:
--- Create measures for total revenue and year-over-year growth.
-
-Total Revenue =
-SUM(Sales[Revenue])
-
-PY Revenue =
-CALCULATE(
-    [Total Revenue],
-    SAMEPERIODLASTYEAR('Date'[Date])
-)
-
-YoY Growth % =
-DIVIDE(
-    [Total Revenue] - [PY Revenue],
-    [PY Revenue],
-    0
-)
-`
-  }
-};
 
 // Helper to calculate 3-Stage Test Lifecycle State
 export const getTestStage = (test) => {
@@ -177,7 +69,10 @@ export const TestScheduler = () => {
   const [practicalSourceMode, setPracticalSourceMode] = useState('upload'); // 'upload' | 'select'
   const [mcqUploadedFile, setMcqUploadedFile] = useState(null);
   const [mcqParsedAssessment, setMcqParsedAssessment] = useState(null);
-  const [practicalUploadedFiles, setPracticalUploadedFiles] = useState([]);
+  const [practicalSetupFile, setPracticalSetupFile] = useState(null);
+  const [practicalQuestionFile, setPracticalQuestionFile] = useState(null);
+  const [practicalQuestionSections, setPracticalQuestionSections] = useState(null);
+  const [practicalParsedAssessment, setPracticalParsedAssessment] = useState(null);
   
   // Date & Time Scheduling States
   const [startDate, setStartDate] = useState(() => new Date().toISOString().split('T')[0]);
@@ -203,11 +98,7 @@ export const TestScheduler = () => {
   const availableApplications = isCompilerAssessment
     ? APPLICATIONS.filter(app => SUPPORTED_COMPILER_APPLICATION_IDS.includes(app.id))
     : APPLICATIONS;
-  const selectedPracticalTypes = PRACTICAL_FILE_TYPES[selectedApplication]
-    ? [PRACTICAL_FILE_TYPES[selectedApplication]]
-    : [];
-  const practicalAccept = selectedPracticalTypes.map(type => type.extension).join(',') || '.py,.sql,.sas,.dax';
-  const practicalFormatLabel = selectedPracticalTypes.map(type => type.extension).join(', ') || '.py, .sql, .sas, or .dax';
+  const practicalConfig = getPracticalConfig(selectedApplication);
 
   useEffect(() => {
     if (!isCompilerAssessment) return;
@@ -277,22 +168,83 @@ export const TestScheduler = () => {
     }
   };
 
-  const handlePracticalFileChange = (e) => {
-    const files = Array.from(e.target.files || []);
-    const allowedExtensions = selectedPracticalTypes.map(type => type.extension);
-    const invalidFile = files.find(file => !allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext)));
-    if (invalidFile) {
-      window.alert(`"${invalidFile.name}" is not valid for the selected application. Allowed: ${practicalFormatLabel}`);
+  const handlePracticalSetupFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const allowedExtensions = practicalConfig.setupAccept.split(',');
+    if (!allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      window.alert(`"${file.name}" is not valid for ${practicalConfig.label}. Allowed: ${practicalConfig.setupAccept}`);
       e.target.value = '';
       return;
     }
-    if (files.length > 0) {
-      setPracticalUploadedFiles(files.map(file => ({
+    try {
+      const content = await parsePracticalSetupFile(file);
+      setPracticalSetupFile({
         name: file.name,
         size: (file.size / 1024).toFixed(1) + ' KB',
-        rawFile: file
-      })));
-      setPracticalFileId(`uploaded-practical-${Date.now()}`);
+        content
+      });
+      if (practicalQuestionSections) {
+        const lab = buildPracticalLab({
+          appId: selectedApplication,
+          questionSections: practicalQuestionSections,
+          setupFileName: file.name,
+          setupContent: content
+        });
+        setPracticalParsedAssessment(prev => prev ? {
+          ...prev,
+          title: lab.title,
+          questions: [lab]
+        } : prev);
+      }
+    } catch (err) {
+      window.alert(err.message || 'Unable to read the practical setup/data file.');
+      setPracticalSetupFile(null);
+      e.target.value = '';
+    }
+  };
+
+  const handlePracticalQuestionFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const allowedExtensions = practicalConfig.questionAccept.split(',');
+    if (!allowedExtensions.some(ext => file.name.toLowerCase().endsWith(ext))) {
+      window.alert(`"${file.name}" is not a supported question document. Allowed: ${practicalConfig.questionAccept}`);
+      e.target.value = '';
+      return;
+    }
+    try {
+      const questionSections = await parsePracticalQuestionFile(file);
+      const uploadedId = `uploaded-practical-${Date.now()}`;
+      const lab = buildPracticalLab({
+        appId: selectedApplication,
+        questionSections,
+        setupFileName: practicalSetupFile?.name || '',
+        setupContent: practicalSetupFile?.content || ''
+      });
+      const uploadedAssessment = {
+        id: uploadedId,
+        title: lab.title,
+        domain: selectedApplication,
+        assessmentType: 'compiler',
+        questions: [lab]
+      };
+      setPracticalQuestionFile({
+        name: file.name,
+        size: (file.size / 1024).toFixed(1) + ' KB',
+        questionTitle: lab.title
+      });
+      setPracticalQuestionSections(questionSections);
+      setPracticalParsedAssessment(uploadedAssessment);
+      setPracticalFileId(uploadedId);
+      addAssessment(uploadedAssessment);
+    } catch (err) {
+      window.alert(err.message || 'Unable to read the question or expected answer from the Word document.');
+      setPracticalQuestionFile(null);
+      setPracticalQuestionSections(null);
+      setPracticalParsedAssessment(null);
+      setPracticalFileId('');
+      e.target.value = '';
     }
   };
 
@@ -308,10 +260,14 @@ export const TestScheduler = () => {
     URL.revokeObjectURL(url);
   };
 
-  const downloadPracticalSample = (appId) => {
-    const sample = PRACTICAL_FILE_TYPES[appId];
-    if (!sample) return;
-    downloadTextFile(sample.sampleFileName, sample.sampleContent);
+  const downloadPracticalSetupSample = (appId) => {
+    const sample = getPracticalConfig(appId);
+    downloadTextFile(sample.setupSampleFileName, sample.setupSampleContent);
+  };
+
+  const downloadPracticalQuestionSample = (appId) => {
+    const sample = getPracticalConfig(appId);
+    downloadTextFile(sample.questionSampleFileName, buildQuestionDocContent(appId));
   };
 
   // Compute End Date & Time based on start + duration
@@ -367,7 +323,10 @@ export const TestScheduler = () => {
   const selectApplication = (appId) => {
     if (isCompilerAssessment && !SUPPORTED_COMPILER_APPLICATION_IDS.includes(appId)) return;
     setSelectedApplication(appId);
-    setPracticalUploadedFiles([]);
+    setPracticalSetupFile(null);
+    setPracticalQuestionFile(null);
+    setPracticalQuestionSections(null);
+    setPracticalParsedAssessment(null);
     setPracticalFileId('');
     setAppDropdownOpen(false);
   };
@@ -406,7 +365,9 @@ export const TestScheduler = () => {
     const selectedMcqDoc = mcqSourceMode === 'upload'
       ? mcqParsedAssessment
       : mcqFiles.find(a => a.id === mcqFileId);
-    const selectedPracticalDoc = practicalFiles.find(a => a.id === practicalFileId);
+    const selectedPracticalDoc = practicalSourceMode === 'upload'
+      ? practicalParsedAssessment
+      : practicalFiles.find(a => a.id === practicalFileId);
     const supportedApplication = isCompilerAssessment && !SUPPORTED_COMPILER_APPLICATION_IDS.includes(selectedApplication)
       ? 'python'
       : selectedApplication;
@@ -421,9 +382,17 @@ export const TestScheduler = () => {
       ? (selectedMcqDoc?.questions || [])
       : [];
 
-    const practicalName = (practicalSourceMode === 'upload' && practicalUploadedFiles.length > 0) 
-      ? practicalUploadedFiles.map(file => file.name).join(', ')
+    if (isCompilerAssessment && practicalSourceMode === 'upload' && (!practicalSetupFile || !practicalParsedAssessment)) {
+      window.alert(`Please upload both the ${practicalConfig.setupLabel} and the Word question document with [QUESTION] and [EXPECTED_ANSWER].`);
+      return;
+    }
+
+    const practicalName = (practicalSourceMode === 'upload' && practicalQuestionFile) 
+      ? `${practicalSetupFile?.name || 'Setup/Data'} + ${practicalQuestionFile.name}`
       : (selectedPracticalDoc?.title || 'Default Compiler Challenge File');
+    const practicalQuestions = (assessmentType === 'practical' || assessmentType === 'hybrid')
+      ? (selectedPracticalDoc?.questions || [])
+      : [];
 
     const newTest = {
       id: `TEST-${Math.floor(1000 + Math.random() * 9000)}`,
@@ -448,6 +417,8 @@ export const TestScheduler = () => {
       servedMcqCount: mcqQuestions.length || undefined,
       practicalFileId: (assessmentType === 'practical' || assessmentType === 'hybrid') ? (practicalFileId || 'practical-custom') : null,
       practicalFileName: (assessmentType === 'practical' || assessmentType === 'hybrid') ? practicalName : null,
+      practicalQuestions,
+      practicalQuestionCount: practicalQuestions.length,
       status: 'Active'
     };
 
@@ -460,7 +431,10 @@ export const TestScheduler = () => {
     setPracticalFileId('');
     setMcqUploadedFile(null);
     setMcqParsedAssessment(null);
-    setPracticalUploadedFiles([]);
+    setPracticalSetupFile(null);
+    setPracticalQuestionFile(null);
+    setPracticalQuestionSections(null);
+    setPracticalParsedAssessment(null);
     setAssessmentType('mcq');
     setSelectedApplication('python');
     setSelectedCourses(courseOptions.slice(0, 1));
@@ -1156,21 +1130,26 @@ export const TestScheduler = () => {
                     <div className="flex items-center justify-between gap-3">
                       <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Code2 className="w-3.5 h-3.5 text-purple-600" />
-                        <span>Practical / Compiler File</span>
+                        <span>{practicalConfig.label} Practical Package</span>
                       </label>
 
                       <div className="flex flex-wrap items-center justify-end gap-2">
-                        {selectedPracticalTypes.map(type => (
-                          <button
-                            key={type.extension}
-                            type="button"
-                            onClick={() => downloadPracticalSample(SUPPORTED_COMPILER_APPLICATION_IDS.find(appId => PRACTICAL_FILE_TYPES[appId]?.extension === type.extension))}
-                            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-bold hover:bg-purple-100 transition"
-                          >
-                            <Download className="w-3 h-3" />
-                            <span>{type.label} Sample</span>
-                          </button>
-                        ))}
+                        <button
+                          type="button"
+                          onClick={() => downloadPracticalSetupSample(selectedApplication)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-bold hover:bg-purple-100 transition"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Setup Sample</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => downloadPracticalQuestionSample(selectedApplication)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-purple-200 bg-purple-50 text-purple-700 text-[10px] font-bold hover:bg-purple-100 transition"
+                        >
+                          <Download className="w-3 h-3" />
+                          <span>Question Doc Sample</span>
+                        </button>
                         <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
                           <button
                             type="button"
@@ -1195,32 +1174,68 @@ export const TestScheduler = () => {
                     </div>
 
                     {practicalSourceMode === 'upload' ? (
-                      <div className="bg-white border-2 border-dashed border-slate-200 hover:border-purple-500 transition rounded-xl p-3.5 text-center relative cursor-pointer group">
-                        <input
-                          type="file"
-                          accept={practicalAccept}
-                          multiple
-                          onChange={handlePracticalFileChange}
-                          className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
-                        />
-                        {practicalUploadedFiles.length > 0 ? (
-                          <div className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 text-left truncate">
-                              <Code2 className="w-5 h-5 text-purple-600 shrink-0" />
-                              <div className="truncate">
-                                <p className="font-bold text-slate-800 truncate">{practicalUploadedFiles.map(file => file.name).join(', ')}</p>
-                                <p className="text-[10px] text-slate-400">{practicalUploadedFiles.length} file(s) • Ready for test</p>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                        <div className="bg-white border-2 border-dashed border-slate-200 hover:border-purple-500 transition rounded-xl p-3.5 text-center relative cursor-pointer group min-h-[106px]">
+                          <input
+                            type="file"
+                            accept={practicalConfig.setupAccept}
+                            onChange={handlePracticalSetupFileChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                          />
+                          {practicalSetupFile ? (
+                            <div className="flex items-center justify-between text-xs h-full">
+                              <div className="flex items-center gap-2 text-left truncate">
+                                <Code2 className="w-5 h-5 text-purple-600 shrink-0" />
+                                <div className="truncate">
+                                  <p className="font-bold text-slate-800 truncate">{practicalSetupFile.name}</p>
+                                  <p className="text-[10px] text-slate-400">{practicalSetupFile.size} • setup/data ready</p>
+                                </div>
                               </div>
+                              <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                                Uploaded
+                              </span>
                             </div>
-                            <span className="text-[10px] bg-purple-100 text-purple-800 font-bold px-2.5 py-0.5 rounded-full shrink-0">
-                              Uploaded
-                            </span>
-                          </div>
-                        ) : (
-                          <div className="space-y-1">
-                            <Upload className="w-5 h-5 text-slate-400 group-hover:text-purple-600 mx-auto transition" />
-                            <p className="text-xs font-bold text-slate-700">Click or Drag & Drop Practical File</p>
-                            <p className="text-[10px] text-slate-400">Upload {practicalFormatLabel} file(s)</p>
+                          ) : (
+                            <div className="space-y-1">
+                              <Upload className="w-5 h-5 text-slate-400 group-hover:text-purple-600 mx-auto transition" />
+                              <p className="text-xs font-bold text-slate-700">{practicalConfig.setupLabel}</p>
+                              <p className="text-[10px] text-slate-400">Upload {practicalConfig.setupAccept}</p>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="bg-white border-2 border-dashed border-slate-200 hover:border-purple-500 transition rounded-xl p-3.5 text-center relative cursor-pointer group min-h-[106px]">
+                          <input
+                            type="file"
+                            accept={practicalConfig.questionAccept}
+                            onChange={handlePracticalQuestionFileChange}
+                            className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                          />
+                          {practicalQuestionFile ? (
+                            <div className="flex items-center justify-between text-xs h-full">
+                              <div className="flex items-center gap-2 text-left truncate">
+                                <FileText className="w-5 h-5 text-purple-600 shrink-0" />
+                                <div className="truncate">
+                                  <p className="font-bold text-slate-800 truncate">{practicalQuestionFile.name}</p>
+                                  <p className="text-[10px] text-slate-400">{practicalQuestionFile.size} • question and answer parsed</p>
+                                </div>
+                              </div>
+                              <span className="text-[10px] bg-emerald-100 text-emerald-800 font-bold px-2.5 py-0.5 rounded-full shrink-0">
+                                Valid
+                              </span>
+                            </div>
+                          ) : (
+                            <div className="space-y-1">
+                              <Upload className="w-5 h-5 text-slate-400 group-hover:text-purple-600 mx-auto transition" />
+                              <p className="text-xs font-bold text-slate-700">Question Word Document</p>
+                              <p className="text-[10px] text-slate-400">Must include [QUESTION] and [EXPECTED_ANSWER]</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {practicalParsedAssessment && (
+                          <div className="md:col-span-2 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl px-3 py-2 text-[11px] font-semibold">
+                            Parsed: {practicalParsedAssessment.title} • {practicalConfig.questionInfoLabel}, starter code, and hidden expected answer saved.
                           </div>
                         )}
                       </div>
